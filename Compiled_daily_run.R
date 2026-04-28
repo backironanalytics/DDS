@@ -4452,24 +4452,24 @@ tryCatch({
     invisible(output_file)
   }
   
-  base_url <- "https://backironanalytics.github.io/propiq-data"
+  base_url <- "https://backironanalytics.github.io/DDS"
   
   build_propiq_index(
     tier        = "Sharp",
     output_file = "Sharp/index.html",
     matchup_str = matchup_str,
     links = list(
-      list(url="https://backironanalytics.github.io/propiq-data/Sharp/propiq_reg_season.html",
+      list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_reg_season.html",
            label="Regular Season",        description="Full season hit rates for tonight's players"),
-      list(url="https://backironanalytics.github.io/propiq-data/Sharp/propiq_home.html",
+      list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_home.html",
            label="Home Games",            description="Regular season home game splits"),
-      list(url="https://backironanalytics.github.io/propiq-data/Sharp/propiq_away.html",
+      list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_away.html",
            label="Away Games",            description="Regular season away game splits"),
-      list(url="https://backironanalytics.github.io/propiq-data/Sharp/propiq_playoffs.html",
+      list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_playoffs.html",
            label="Playoffs",              description="Playoff game splits"),
-      list(url="https://backironanalytics.github.io/propiq-data/Sharp/propiq_last10.html",
+      list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_last10.html",
            label="Last 10 Games",         description="Recent form — last 10 games"),
-      list(url="https://backironanalytics.github.io/propiq-data/Sharp/propiq_vs_opponent.html",
+      list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_vs_opponent.html",
            label="vs Tonight's Opponent", description="Head-to-head splits against tonight's matchup")
     )
   )
@@ -4479,7 +4479,7 @@ tryCatch({
     output_file = "Pro/index.html",
     matchup_str = matchup_str,
     links = list(
-      list(url="https://backironanalytics.github.io/propiq-data/Pro/propiq_gameday.html",
+      list(url="https://backironanalytics.github.io/DDS/Pro/propiq_gameday.html",
            label="Game Day Thresholds",
            description="Q1 / H1 / Q3 threshold analysis for tonight's players")
     )
@@ -4490,7 +4490,7 @@ tryCatch({
     output_file = "Starter/index.html",
     matchup_str = matchup_str,
     links = list(
-      list(url="https://backironanalytics.github.io/propiq-data/Starter/propiq_stats.html",
+      list(url="https://backironanalytics.github.io/DDS/Starter/propiq_stats.html",
            label="Hit Rate Stats",
            description="Full game hit rates — Regular Season and Playoffs")
     )
