@@ -4392,6 +4392,112 @@ tryCatch({
   gc(); gc()
   message("✓ All split HTML files complete")
   
+  # ── Build index pages ────────────────────────────────────────────────────────
+  build_propiq_index <- function(tier, output_file, links, matchup_str = "") {
+    game_date <- tryCatch(
+      format(as.Date(next_team_batch_date), "%A, %B %d %Y"),
+      error = function(e) format(Sys.Date(), "%A, %B %d %Y")
+    )
+    link_cards <- paste(sapply(links, function(l) {
+      glue::glue('
+        <a href="{l$url}" target="_blank" style="display:block;background:#1C0F3A;
+           border:1px solid #2D1A5A;border-radius:12px;padding:18px 24px;
+           text-decoration:none;margin-bottom:12px;"
+           onmouseover="this.style.background=\'#2A1650\'"
+           onmouseout="this.style.background=\'#1C0F3A\'">
+          <div style="font-family:Barlow Condensed,sans-serif;font-size:18px;
+                      font-weight:800;color:#FFFFFF;margin-bottom:4px;">{l$label}</div>
+          <div style="font-family:JetBrains Mono,monospace;font-size:11px;
+                      color:#9B86C0;">{l$description}</div>
+        </a>')
+    }), collapse = "\n")
+    html <- paste0('<!DOCTYPE html><html lang="en"><head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>PropIQ ', tier, ' \u2014 ', game_date, '</title>
+      <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+      <style>
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{background:#0A0518;color:#FFF;font-family:Barlow,sans-serif;
+             min-height:100vh;display:flex;flex-direction:column;
+             align-items:center;padding:40px 20px;}
+        .container{width:100%;max-width:540px;}
+        .logo{font-family:Barlow Condensed,sans-serif;font-size:36px;
+              font-weight:900;text-align:center;}
+        .logo span{color:#F5A623;}
+        .badge{display:block;text-align:center;font-family:JetBrains Mono,monospace;
+               font-size:11px;color:#F5A623;background:rgba(245,166,35,0.15);
+               border:1px solid rgba(245,166,35,0.4);border-radius:4px;
+               padding:3px 10px;letter-spacing:0.1em;margin:8px auto 4px;
+               width:fit-content;}
+        .date{font-family:JetBrains Mono,monospace;font-size:12px;
+              color:#6B4DA0;text-align:center;margin-bottom:4px;}
+        .matchups{font-size:13px;color:#9B86C0;text-align:center;margin-bottom:28px;}
+        .section{font-family:JetBrains Mono,monospace;font-size:10px;
+                 letter-spacing:0.15em;color:#6B4DA0;text-transform:uppercase;
+                 margin-bottom:12px;}
+        .footer{margin-top:28px;font-family:JetBrains Mono,monospace;
+                font-size:11px;color:#3D2A6B;text-align:center;}
+      </style></head><body><div class="container">
+      <div class="logo">Prop<span>IQ</span></div>
+      <div class="badge">', toupper(tier), ' TIER</div>
+      <div class="date">', game_date, '</div>
+      <div class="matchups">', matchup_str, '</div>
+      <div class="section">Select a report</div>',
+                   link_cards,
+                   '<div class="footer">Updated nightly \u00b7 Data through today\'s games</div>
+      </div></body></html>')
+    writeLines(html, output_file)
+    message("  Index page saved: ", output_file)
+    invisible(output_file)
+  }
+  
+  base_url <- "https://backironanalytics.github.io/propiq-data"
+  
+  build_propiq_index(
+    tier        = "Sharp",
+    output_file = "Sharp/index.html",
+    matchup_str = matchup_str,
+    links = list(
+      list(url="https://backironanalytics.github.io/propiq-data/Sharp/propiq_reg_season.html",
+           label="Regular Season",        description="Full season hit rates for tonight's players"),
+      list(url="https://backironanalytics.github.io/propiq-data/Sharp/propiq_home.html",
+           label="Home Games",            description="Regular season home game splits"),
+      list(url="https://backironanalytics.github.io/propiq-data/Sharp/propiq_away.html",
+           label="Away Games",            description="Regular season away game splits"),
+      list(url="https://backironanalytics.github.io/propiq-data/Sharp/propiq_playoffs.html",
+           label="Playoffs",              description="Playoff game splits"),
+      list(url="https://backironanalytics.github.io/propiq-data/Sharp/propiq_last10.html",
+           label="Last 10 Games",         description="Recent form — last 10 games"),
+      list(url="https://backironanalytics.github.io/propiq-data/Sharp/propiq_vs_opponent.html",
+           label="vs Tonight's Opponent", description="Head-to-head splits against tonight's matchup")
+    )
+  )
+  
+  build_propiq_index(
+    tier        = "Pro",
+    output_file = "Pro/index.html",
+    matchup_str = matchup_str,
+    links = list(
+      list(url="https://backironanalytics.github.io/propiq-data/Pro/propiq_gameday.html",
+           label="Game Day Thresholds",
+           description="Q1 / H1 / Q3 threshold analysis for tonight's players")
+    )
+  )
+  
+  build_propiq_index(
+    tier        = "Starter",
+    output_file = "Starter/index.html",
+    matchup_str = matchup_str,
+    links = list(
+      list(url="https://backironanalytics.github.io/propiq-data/Starter/propiq_stats.html",
+           label="Hit Rate Stats",
+           description="Full game hit rates — Regular Season and Playoffs")
+    )
+  )
+  
+  message("✓ Index pages complete")
+  
   # ── Success email ─────────────────────────────────────────────────────────────
   duration <- round(difftime(Sys.time(), script_start_time, units = "mins"), 1)
   
