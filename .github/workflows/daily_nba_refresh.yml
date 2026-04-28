@@ -1,0 +1,94 @@
+name: Daily NBA Prop Refresh
+
+on:
+  schedule:
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: windows-latest
+    timeout-minutes: 300
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.4'
+          use-public-rspm: true
+
+      - name: Cache R packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: r-packages-${{ runner.os }}-${{ hashFiles('DESCRIPTION') }}
+          restore-keys: r-packages-${{ runner.os }}-
+
+      - name: Restore PBP data cache
+        uses: actions/cache@v4
+        with:
+          path: data/pbp
+          key: pbp-data-${{ runner.os }}
+          restore-keys: pbp-data-
+
+      - name: Install R packages
+        shell: Rscript {0}
+        env:
+          GITHUB_PAT: ${{ secrets.PAT }}
+        run: |
+          if (!"pak" %in% installed.packages()[,"Package"])
+            install.packages("pak", repos = "https://cloud.r-project.org")
+          pkgs <- c(
+            "tidyverse", "dplyr", "rvest", "stringr", "parallel",
+            "arrow", "reactable", "reactablefmtr", "crosstalk",
+            "htmltools", "rmarkdown", "scales", "viridis",
+            "furrr", "future", "parallelly", "glue", "logger","flexdashboard","caret",
+            "ggpubr","knitr","broom","grid","gridExtra","formattable","markdown","magick","highcharter",
+            "extrafont","cowplot","fmsb","shiny","fontawesome","bslib","plotly","ggbreak","RSelenium",
+            "httr","rjson","jsonlite","stringi","sparkline","rlist","htmlwidgets","webshot","webshot2",
+            "foreach","readr","crosstalk","htmltools","hoopR"
+            )
+          missing <- pkgs[!pkgs %in% installed.packages()[,"Package"]]
+          if (length(missing)) install.packages(missing, repos = "https://cloud.r-project.org")
+          if (!"nbastatR" %in% installed.packages()[,"Package"])
+            pak::pak("abresler/nbastatR")
+          if (!"hoopR" %in% installed.packages()[,"Package"])
+            pak::pak("sportsdataverse/hoopR@v2.1.0")
+
+      - name: Run Compiled_daily_run.R
+        shell: Rscript {0}
+        env:
+          VROOM_CONNECTION_SIZE: '262144'
+          GITHUB_PAT: ${{ secrets.PAT }}
+        run: |
+          source("Compiled_daily_run.R")
+
+      - name: Render report
+        shell: Rscript {0}
+        run: |
+          rmarkdown::render(
+            input       = "Matrix_Testv3.Rmd",
+            output_file = "prop_bet_matrix.html",
+            output_dir  = "."
+          )
+
+      - name: Save PBP data cache
+        uses: actions/cache@v4
+        with:
+          path: data/pbp
+          key: pbp-data-${{ runner.os }}
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          include_files: prop_bet_matrix.html
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prop-bet-matrix-${{ github.run_id }}
+          path: prop_bet_matrix.html
+          retention-days: 7

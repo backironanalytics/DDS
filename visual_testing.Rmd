@@ -1,0 +1,923 @@
+---
+title: "Prop IQ - Over Hit Rates" 
+output: 
+  flexdashboard::flex_dashboard:
+    theme: bootstrap
+    orientation: rows
+    vertical_layout: scroll
+
+
+---
+
+```{css, echo=FALSE}
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+/* ── PropIQ Color Theme ── */
+:root {
+  --purple-deep:    #0F0720;
+  --purple-dark:    #1C0F3A;
+  --purple-surface: #2A1650;
+  --purple-mid:     #534AB7;
+  --purple-muted:   #9B86C0;
+  --purple-border:  #2D1A5A;
+  --gold:           #F5A623;
+  --gold-light:     #FFD166;
+  --green:          #2ECC7A;
+  --red:            #E85252;
+  --white:          #FFFFFF;
+  --text-secondary: #C4AEE8;
+  --text-muted:     #6B4DA0;
+}
+
+/* ── Body and background ── */
+body {
+  background-color: #0F0720 !important;
+  color: #FFFFFF !important;
+  font-family: 'Barlow', sans-serif !important;
+}
+
+/* ── Navbar ── */
+.navbar {
+  background-color: rgba(15,7,32,0.95) !important;
+  border-bottom: 1px solid #2D1A5A !important;
+}
+
+.navbar-brand {
+  color: #F5A623 !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.5px !important;
+}
+
+.navbar-nav > li > a {
+  color: #9B86C0 !important;
+  font-weight: 500 !important;
+}
+
+.navbar-nav > li > a:hover {
+  color: #FFFFFF !important;
+}
+
+.navbar-nav > .active > a,
+.navbar-nav > .active > a:hover {
+  background-color: rgba(83,74,183,0.3) !important;
+  color: #F5A623 !important;
+}
+
+/* ── Dashboard pages and chart wrappers ── */
+.dashboard-page-wrapper,
+.chart-wrapper,
+.chart-stage,
+.flexdashboard-page {
+  background-color: #0F0720 !important;
+}
+
+/* ── Tab pills ── */
+.nav-pills > li > a {
+  background-color: #1C0F3A !important;
+  color: #9B86C0 !important;
+  border: 1px solid #2D1A5A !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  margin-right: 4px !important;
+}
+
+.nav-pills > li > a:hover {
+  background-color: #2A1650 !important;
+  color: #FFFFFF !important;
+  border-color: #534AB7 !important;
+}
+
+.nav-pills > li.active > a,
+.nav-pills > li.active > a:hover {
+  background-color: #534AB7 !important;
+  color: #FFFFFF !important;
+  border-color: #534AB7 !important;
+}
+
+/* ── Reactable tables ── */
+/* ── Reactable — structural only, no cell color overrides ─────────────────── */
+
+/* Table container background */
+.rt-table {
+  background-color: #0F0720 !important;
+}
+
+/* Header row */
+.rt-thead.-header {
+  background-color: #1C0F3A !important;
+}
+
+.rt-th {
+  background-color: #1C0F3A !important;
+  color: #9B86C0 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  border-right: 1px solid #2D1A5A !important;
+}
+
+/* Column group header bar */
+.rt-column-group-header {
+  background-color: #0F0720 !important;
+  border-bottom: 1px solid #2D1A5A !important;
+}
+
+/* Row borders only — NO background or color on td */
+.rt-tbody .rt-tr-group {
+  border-bottom: 1px solid #2D1A5A !important;
+}
+
+/* Sticky left columns — these don't have color coding so safe to style */
+.rt-td-sticky-left {
+  background-color: #1C0F3A !important;
+  color: #FFFFFF !important;
+  border-right: 2px solid #2D1A5A !important;
+}
+
+.rt-th-sticky-left {
+  background-color: #1C0F3A !important;
+  color: #9B86C0 !important;
+  border-right: 2px solid #2D1A5A !important;
+}
+
+/* Pagination */
+.rt-pagination {
+  background-color: #1C0F3A !important;
+  color: #9B86C0 !important;
+  border-top: 1px solid #2D1A5A !important;
+}
+
+.rt-page-button {
+  background-color: #2A1650 !important;
+  color: #9B86C0 !important;
+  border: 1px solid #2D1A5A !important;
+  border-radius: 4px !important;
+}
+
+.rt-page-button:hover {
+  background-color: #534AB7 !important;
+  color: #FFFFFF !important;
+}
+
+.rt-page-button-current {
+  background-color: #F5A623 !important;
+  color: #0F0720 !important;
+  font-weight: 800 !important;
+}
+
+/* Search box */
+.rt-search {
+  background-color: #1C0F3A !important;
+  border: 1px solid #2D1A5A !important;
+  color: #FFFFFF !important;
+  border-radius: 6px !important;
+}
+
+/* ── Crosstalk filter dropdowns ── */
+.selectize-control .selectize-input {
+  background-color: #1C0F3A !important;
+  border: 1px solid #2D1A5A !important;
+  color: #FFFFFF !important;
+  border-radius: 6px !important;
+}
+
+.selectize-dropdown {
+  background-color: #1C0F3A !important;
+  border: 1px solid #2D1A5A !important;
+  color: #FFFFFF !important;
+}
+
+.selectize-dropdown .option:hover,
+.selectize-dropdown .option.active {
+  background-color: #534AB7 !important;
+  color: #FFFFFF !important;
+}
+
+.selectize-dropdown .option.selected {
+  background-color: rgba(245,166,35,0.2) !important;
+  color: #F5A623 !important;
+}
+
+/* ── Filter labels ── */
+label {
+  color: #9B86C0 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+}
+
+/* ── Column group headers in reactable ── */
+.rt-column-group {
+  background-color: #0F0720 !important;
+  border-bottom: 1px solid #2D1A5A !important;
+}
+
+/* ── Scrollbar styling ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0F0720;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2D1A5A;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #534AB7;
+}
+
+/* Fix striped rows — force dark colors */
+.rt-tr-striped .rt-td {
+  background-color: #1C0F3A !important;
+}
+
+.rt-tr:not(.rt-tr-striped) .rt-td {
+  background-color: #0F0720 !important;
+}
+
+.rt-tr:hover .rt-td {
+  background-color: #2A1650 !important;
+}
+
+/* Fix white background on table container */
+.rt-table,
+.rt-tbody,
+.rt-thead,
+.rt-tfoot {
+  background-color: #0F0720 !important;
+}
+
+/* Fix white background behind pill tabsets */
+.tab-content,
+.tab-pane,
+.tabset-fade,
+.nav-tabs-custom,
+.chart-wrapper,
+.chart-stage {
+  background-color: #0F0720 !important;
+}
+
+/* The row container behind the pills */
+.dashboard-row,
+.dashboard-row-container {
+  background-color: #0F0720 !important;
+}
+
+/* Fix the actual pill tab bar background */
+.nav-pills {
+  background-color: #0F0720 !important;
+  padding: 8px 0 !important;
+}
+```
+
+```{r setup, include=FALSE, echo = FALSE}
+
+
+
+color_set <- c("red2","#f7c844","#429460")
+
+propiq_theme <- reactableTheme(
+  color           = "#FFFFFF",
+  backgroundColor = "#0F0720",
+  borderColor     = "#2D1A5A",
+  stripedColor    = "#1C0F3A",
+  highlightColor  = "#2A1650",
+  cellPadding     = "8px 12px",
+
+  headerStyle = list(
+    background  = "#1C0F3A",
+    color       = "#9B86C0",
+    fontSize    = "11px",
+    fontWeight  = "600",
+    letterSpacing = "0.05em",
+    textTransform = "uppercase",
+    borderBottom = "1px solid #2D1A5A"
+  ),
+
+  groupHeaderStyle = list(
+    background  = "#0F0720",
+    color       = "#9B86C0",
+    borderBottom = "1px solid #2D1A5A"
+  ),
+
+  pageButtonStyle = list(
+    background  = "#2A1650",
+    color       = "#9B86C0",
+    border      = "1px solid #2D1A5A",
+    borderRadius = "4px"
+  ),
+
+  pageButtonHoverStyle = list(
+    background = "#534AB7",
+    color      = "#FFFFFF"
+  ),
+
+  pageButtonActiveStyle = list(
+    background = "#F5A623",
+    color      = "#0F0720",
+    fontWeight = "800"
+  ),
+
+  searchInputStyle = list(
+    background   = "#1C0F3A",
+    border       = "1px solid #2D1A5A",
+    color        = "#FFFFFF",
+    borderRadius = "6px"
+  ),
+
+  paginationStyle = list(
+    background  = "#1C0F3A",
+    color       = "#9B86C0",
+    borderTop   = "1px solid #2D1A5A"
+  )
+)
+
+
+
+```
+
+
+
+
+Points {data-navmenu="Game Day Edge" data-navmenu-icon="fa-signal"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+
+### Q1 Points
+
+
+```{r actionable_q1pts, echo=FALSE, warning=FALSE, message=FALSE}
+
+build_actionable_table <- function(data, player_col, half_col, half_label,
+                                   last_col, prefix,
+                                   group_header, filter_id_base) {
+
+  ou_cols <- names(data)[grepl(paste0("^", prefix), names(data))]
+  ou_cols <- ou_cols[order(as.numeric(gsub(prefix, "", ou_cols)))]
+
+  color_fn <- scales::col_numeric(
+    palette = color_set,
+    domain  = c(0, 1)
+  )
+
+  ou_col_defs <- setNames(
+    lapply(ou_cols, function(col) {
+      num     <- as.numeric(gsub(prefix, "", col))
+      ou_name <- paste0(num - 0.5)
+      colDef(
+        name   = ou_name,
+        align  = "center",
+        format = colFormat(suffix = "%"),
+        style  = function(value) {
+          if (is.na(value)) return(list(background = "#f5f5f5"))
+          bg        <- color_fn(value)
+          rgb_vals  <- grDevices::col2rgb(bg) / 255
+          luminance <- 0.299 * rgb_vals[1] + 0.587 * rgb_vals[2] + 0.114 * rgb_vals[3]
+          txt_color <- if (luminance > 0.5) "#111111" else "#ffffff"
+          list(background = bg, color = txt_color,
+               fontWeight = "600", borderRadius = "4px", textAlign = "center")
+        },
+        cell = function(value, index) {
+          if (is.na(value)) return("—")
+          n   <- data$n_games[index]
+          num <- if (!is.na(n)) round(value * n) else "?"
+          htmltools::span(
+            title = paste0(num, " / ", ifelse(is.na(n), "?", n), " games"),
+            style = "cursor: help; border-bottom: 1px dotted #999;",
+            scales::percent(value, accuracy = 1)
+          )
+        }
+      )
+    }),
+    ou_cols
+  )
+
+  col_groups <- list(
+    colGroup(
+      name        = group_header,
+      columns     = ou_cols,
+      headerStyle = list(
+        background   = "#2e6d9e",
+        color        = "#ffffff",
+        fontWeight   = "600",
+        fontSize     = "13px",
+        textAlign    = "center",
+        borderRadius = "4px"
+      )
+    )
+  )
+
+  fixed_col_defs <- list()
+  fixed_col_defs[[player_col]] <- colDef(
+    name        = "Player",
+    sticky      = "left",
+    width       = 150,
+    align       = "left",
+    style       = list(fontWeight = "600"),
+    headerStyle = list(textAlign = "left")
+  )
+  fixed_col_defs[["last_game_date"]] <- colDef(
+    name        = "Last Game",
+    sticky      = "left",
+    width       = 100,
+    align       = "center",
+    format      = colFormat(date = TRUE),
+    headerStyle = list(textAlign = "center")
+  )
+  fixed_col_defs[[last_col]] <- colDef(
+    name        = half_label,
+    sticky      = "left",
+    width       = 90,
+    align       = "center",
+    headerStyle = list(textAlign = "center"),
+    style       = list(fontWeight = "700", color = "#2e6d9e")
+  )
+  fixed_col_defs[["threshold_label"]] <- colDef(
+    name        = "Threshold",
+    sticky      = "left",
+    width       = 100,
+    align       = "center",
+    headerStyle = list(textAlign = "center"),
+    style       = list(fontSize = "12px", color = "#429460", fontWeight = "600")
+  )
+  fixed_col_defs[["n_games"]] <- colDef(
+    name        = "# of Games",
+    sticky      = "left",
+    width       = 80,
+    align       = "center",
+    headerStyle = list(textAlign = "center"),
+    style       = list(color = "#888", fontSize = "12px")
+  )
+
+  col_order <- c(
+    player_col,
+    "last_game_date",
+    last_col,
+    "threshold_label",
+    "n_games",
+    setdiff(names(data), c(player_col, "last_game_date",
+                            last_col, "threshold_label", "n_games"))
+  )
+  data <- data[, col_order]
+
+  shared_data <- SharedData$new(data)
+  player_formula <- as.formula(paste0("~", player_col))
+
+  tbl <- reactable(
+    shared_data,
+    columns             = c(fixed_col_defs, ou_col_defs),
+    columnGroups        = col_groups,
+    highlight           = TRUE,
+    striped             = TRUE,
+    fullWidth           = TRUE,
+    defaultPageSize     = 15,
+    showPageSizeOptions = TRUE,
+    pageSizeOptions     = c(15, 25, 50),
+    paginationType      = "jump",
+    showPageInfo        = TRUE,
+    theme               = propiq_theme,
+    language            = reactableLang(
+      pageInfo     = "{rowStart}-{rowEnd} of {rows} rows",
+      pagePrevious = "← Prev",
+      pageNext     = "Next →"
+    )
+  )
+
+  browsable(
+    tagList(
+      tags$div(
+        style = "display: flex; gap: 24px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap;",
+        tags$div(
+          style = "width: 250px;",
+          tags$label(
+            style = "font-family: sans-serif; font-size: 12px; font-weight: 600; color: #666; display: block; margin-bottom: 4px;",
+            "PLAYER"
+          ),
+          filter_select(
+            id         = paste0(filter_id_base, "_player"),
+            label      = NULL,
+            sharedData = shared_data,
+            group      = player_formula,
+            multiple   = TRUE
+          )
+        )
+      ),
+      tags$p(
+        style = "font-family: sans-serif; font-size: 12px; color: #888; margin-bottom: 8px;",
+        "Hit rates for full game lines when player scores AT LEAST their last game Q1 total. Hover over any percentage to see the fraction."
+      ),
+      tbl
+    )
+  )
+}
+
+build_actionable_table(
+  data           = actionable_q1pts,
+  player_col     = "scorer",
+  half_col       = "fqpts",
+  half_label     = "Last G Q1 Pts",
+  last_col       = "last_game_q1pts",
+  prefix         = "total_pts_",
+  group_header   = "Full Game Points — Over/Under",
+  filter_id_base = "action_q1pts"
+)
+```
+
+Assists {data-navmenu="Game Day Edge"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+
+
+### Q1 Assists
+
+```{r actionable_q1ast, echo=FALSE, warning=FALSE, message=FALSE}
+build_actionable_table(
+  data           = actionable_q1ast,
+  player_col     = "assister",
+  half_col       = "fqast",
+  half_label     = "Last G Q1 Ast",
+  last_col       = "last_game_q1ast",
+  prefix         = "total_ast_",
+  group_header   = "Full Game Assists — Over/Under",
+  filter_id_base = "action_q1ast"
+)
+```
+
+Rebounds {data-navmenu="Game Day Edge"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+
+### Q1 Rebounds
+
+```{r actionable_q1reb, echo=FALSE, warning=FALSE, message=FALSE}
+build_actionable_table(
+  data           = actionable_q1reb,
+  player_col     = "rebounder",
+  half_col       = "fqreb",
+  half_label     = "Last G Q1 Reb",
+  last_col       = "last_game_q1reb",
+  prefix         = "total_reb_",
+  group_header   = "Full Game Rebounds — Over/Under",
+  filter_id_base = "action_q1reb"
+)
+```
+
+
+
+Q1 {data-navmenu="Test" data-navmenu-icon="fa-signal"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Points
+
+```{r edge_cards_pts, echo=FALSE, warning=FALSE, message=FALSE}
+
+build_edge_cards <- function(data, player_col, last_col, threshold_label_col,
+                              prefix, title_label, stat_type, period = "Q1") {
+  # stat_type controls the dynamic line spacing
+  # "pts" = start at avg + 5, show 6 lines in increments of 2
+  # "ast" = start at avg + 2, show 5 lines in increments of 1  
+  # "reb" = start at avg + 3, show 5 lines in increments of 1
+
+  get_color <- function(pct) {
+    if (is.na(pct)) return("#6B4DA0")
+    if (pct >= 0.65) return("#2ECC7A")
+    if (pct >= 0.50) return("#F5A623")
+    return("#E85252")
+  }
+
+get_dynamic_lines <- function(avg_val, stat_type, period) {
+  # period = "Q1" | "H1" | "Q3"
+  # As more of the game is played the starting offset shrinks
+  # and the increment gets smaller since less variance remains
+
+  avg_val <- round(avg_val * 2) / 2   # round to nearest 0.5
+
+  if (stat_type == "pts") {
+    offsets <- switch(period,
+      "Q1" = list(start = 10,  step = 2, n = 6),   # 3 qtrs left — wide runway
+      "H1" = list(start = 10,  step = 2, n = 5),   # 2 qtrs left — moderate
+      "Q3" = list(start = 8,  step = 1, n = 5)    # 1 qtr left — tight
+    )
+  } else if (stat_type == "ast") {
+    offsets <- switch(period,
+      "Q1" = list(start = 3,  step = 2, n = 5),
+      "H1" = list(start = 1,  step = 1, n = 4),
+      "Q3" = list(start = 1,  step = 1, n = 3)
+    )
+  } else if (stat_type == "reb") {
+    offsets <- switch(period,
+      "Q1" = list(start = 3,  step = 2, n = 5),
+      "H1" = list(start = 2,  step = 1, n = 4),
+      "Q3" = list(start = 1,  step = 1, n = 3)
+    )
+  }
+
+  start <- avg_val + offsets$start
+  seq(start, start + (offsets$step * (offsets$n - 1)), by = offsets$step)
+}
+
+  cards_html <- purrr::map_chr(seq_len(nrow(data)), function(i) {
+
+    row       <- data[i, ]
+    player    <- row[[player_col]]
+    last_val  <- row[[last_col]]
+    threshold <- row[[threshold_label_col]]
+    last_date <- format(row$last_game_date, "%b %d")
+
+    # ── Dynamic prop lines based on this player's last_val ────────────────────
+    prop_lines <- get_dynamic_lines(as.numeric(last_val), stat_type, period)
+
+    # ── Headshot ──────────────────────────────────────────────────────────────
+    headshot_url <- if ("headshot_url" %in% names(row) &&
+                        !is.na(row$headshot_url) &&
+                        nchar(as.character(row$headshot_url)) > 0) {
+      as.character(row$headshot_url)
+    } else {
+      NA_character_
+    }
+
+    avatar_html <- if (!is.na(headshot_url)) {
+      glue::glue('
+        <img src="{headshot_url}"
+             style="width:56px;height:56px;border-radius:50%;
+                    object-fit:cover;flex-shrink:0;
+                    border:2px solid #2D1A5A;background:#2A1650;"
+             onerror="this.onerror=null;this.style.display=\'none\';
+                      this.nextElementSibling.style.display=\'flex\';"
+        />
+        <div style="display:none;width:56px;height:56px;border-radius:50%;
+                    background:#534AB7;align-items:center;justify-content:center;
+                    font-family:Barlow Condensed,sans-serif;font-size:18px;
+                    font-weight:800;color:#FFFFFF;flex-shrink:0;">
+          {paste(substr(strsplit(player, " ")[[1]], 1, 1), collapse="") |> substr(1,2)}
+        </div>
+      ')
+    } else {
+      initials <- paste(
+        substr(strsplit(player, " ")[[1]], 1, 1),
+        collapse = ""
+      ) |> substr(1, 2)
+      glue::glue('
+        <div style="width:56px;height:56px;border-radius:50%;
+                    background:#534AB7;display:flex;align-items:center;
+                    justify-content:center;font-family:Barlow Condensed,sans-serif;
+                    font-size:18px;font-weight:800;color:#FFFFFF;flex-shrink:0;">
+          {initials}
+        </div>
+      ')
+    }
+
+    # ── Prop line rows ─────────────────────────────────────────────────────────
+    lines_html <- purrr::map_chr(prop_lines, function(line) {
+      col_name  <- paste0(prefix, line)
+      pct       <- if (col_name %in% names(row)) as.numeric(row[[col_name]]) else NA
+      color     <- get_color(pct)
+      bar_pct   <- if (!is.na(pct)) round(pct * 100) else 0
+      pct_label <- if (!is.na(pct)) paste0(round(pct * 100), "%") else "—"
+      ou_label  <- paste0("O ", line - 0.5, " ", title_label)
+
+      glue::glue('
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <div style="font-size:11px;color:#C4AEE8;width:80px;flex-shrink:0;">
+            {ou_label}
+          </div>
+          <div style="flex:1;height:6px;background:#2A1650;border-radius:3px;overflow:hidden;">
+            <div style="width:{bar_pct}%;height:100%;background:{color};border-radius:3px;"></div>
+          </div>
+          <div style="font-family:Barlow Condensed,sans-serif;font-size:15px;
+                      font-weight:800;color:{color};width:36px;text-align:right;">
+            {pct_label}
+          </div>
+        </div>
+      ')
+    }) |> paste(collapse = "")
+
+    glue::glue('
+      <div style="background:#1C0F3A;border:1px solid #2D1A5A;border-radius:14px;
+                  overflow:hidden;">
+        <div style="padding:14px 18px;border-bottom:1px solid #2D1A5A;
+                    display:flex;align-items:center;gap:12px;">
+          {avatar_html}
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:15px;font-weight:700;color:#FFFFFF;
+                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              {player}
+            </div>
+            <div style="font-size:11px;color:#6B4DA0;margin-top:3px;">
+              Last 5 avg: {last_val} {title_label}
+            </div>
+          </div>
+          <div style="background:rgba(245,166,35,0.1);
+                      border:1px solid rgba(245,166,35,0.25);
+                      border-radius:6px;padding:4px 10px;
+                      font-family:JetBrains Mono,monospace;
+                      font-size:10px;font-weight:600;color:#F5A623;
+                      white-space:nowrap;flex-shrink:0;">
+            {threshold}
+          </div>
+        </div>
+        <div style="padding:14px 18px;">
+          {lines_html}
+        </div>
+      </div>
+    ')
+  })
+
+  all_cards <- paste(cards_html, collapse = "")
+
+  htmltools::HTML(glue::glue('
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <div style="background:#0F0720;padding:24px;border-radius:16px;">
+      <div style="font-family:JetBrains Mono,monospace;font-size:11px;font-weight:600;
+                  color:#F5A623;letter-spacing:0.15em;text-transform:uppercase;
+                  margin-bottom:20px;">
+        ⚡ {title_label} Edge — L5 Avg Threshold
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;">
+        {all_cards}
+      </div>
+      <div style="margin-top:16px;font-size:11px;color:#6B4DA0;
+                  font-family:JetBrains Mono,monospace;">
+        🟢 65%+ strong edge · 🟡 50–64% borderline · 🔴 under 50% avoid
+      </div>
+    </div>
+  '))
+}
+
+# ── Points cards ───────────────────────────────────────────────────────────────
+build_edge_cards(
+  data                = actionable_q1pts_top,
+  player_col          = "scorer",
+  last_col            = "last_game_q1pts",
+  threshold_label_col = "threshold_label",
+  prefix              = "total_pts_",
+  title_label         = "pts",
+  stat_type           = "pts",
+  period = "Q1"
+)
+```
+
+
+### Assists
+
+```{r edge_cards_ast, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_cards(
+  data                = actionable_q1ast_top,
+  player_col          = "assister",
+  last_col            = "last_game_q1ast",
+  threshold_label_col = "threshold_label",
+  prefix              = "total_ast_",
+  title_label         = "ast",
+  stat_type           = "ast",
+  period = "Q1"
+)
+```
+
+
+### Rebounds
+
+```{r edge_cards_reb, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_cards(
+  data                = actionable_q1reb_top,
+  player_col          = "rebounder",
+  last_col            = "last_game_q1reb",
+  threshold_label_col = "threshold_label",
+  prefix              = "total_reb_",
+  title_label         = "reb",
+  stat_type           = "reb",
+  period = "Q1"
+)
+```
+
+
+H1 {data-navmenu="Test"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Points
+
+```{r edge_cards_h1pts, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_cards(
+  data                = actionable_h1pts_top,
+  player_col          = "scorer",
+  last_col            = "last_game_h1pts",
+  threshold_label_col = "threshold_label",
+  prefix              = "total_pts_",
+  title_label         = "pts",
+  stat_type           = "pts",
+  period = "H1"
+)
+```
+
+
+
+### Assists
+
+```{r edge_cards_h1ast, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_cards(
+  data                = actionable_h1ast_top,
+  player_col          = "assister",
+  last_col            = "last_game_h1ast",
+  threshold_label_col = "threshold_label",
+  prefix              = "total_ast_",
+  title_label         = "ast",
+  stat_type           = "ast",
+  period = "H1"
+)
+```
+
+
+### Rebounds
+
+```{r edge_cards_h1reb, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_cards(
+  data                = actionable_h1reb_top,
+  player_col          = "rebounder",
+  last_col            = "last_game_h1reb",
+  threshold_label_col = "threshold_label",
+  prefix              = "total_reb_",
+  title_label         = "reb",
+  stat_type           = "reb",
+  period = "H1"
+)
+```
+
+
+Q3 {data-navmenu="Test"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Points
+
+```{r edge_cards_q3pts, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_cards(
+  data                = actionable_q3pts_top,
+  player_col          = "scorer",
+  last_col            = "last_game_q3pts",
+  threshold_label_col = "threshold_label",
+  prefix              = "total_pts_",
+  
+  title_label         = "pts",
+  stat_type           = "pts",
+  period = "Q3"
+)
+```
+
+
+### Assists
+
+```{r edge_cards_q3ast, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_cards(
+  data                = actionable_q3ast_top,
+  player_col          = "assister",
+  last_col            = "last_game_q3ast",
+  threshold_label_col = "threshold_label",
+  prefix              = "total_ast_",
+  
+  title_label         = "ast",
+  stat_type           = "ast",
+  period = "Q3"
+)
+```
+
+
+### Rebounds
+
+```{r edge_cards_q3reb, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_cards(
+  data                = actionable_q3reb_top,
+  player_col          = "rebounder",
+  last_col            = "last_game_q3reb",
+  threshold_label_col = "threshold_label",
+  prefix              = "total_reb_",
+  
+  title_label         = "reb",
+  stat_type           = "reb",
+  period = "Q3"
+)
+```

@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PropBetIQ — NBA Prop Analytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple-deep: #0F0720;
+    --purple-dark: #1C0F3A;
+    --purple-surface: #2A1650;
+    --purple-mid: #534AB7;
+    --purple-muted: #9B86C0;
+    --purple-border: #2D1A5A;
+    --gold: #F5A623;
+    --gold-light: #FFD166;
+    --gold-dim: rgba(245,166,35,0.12);
+    --green: #2ECC7A;
+    --red: #E85252;
+    --white: #FFFFFF;
+    --text-secondary: #C4AEE8;
+    --text-muted: #6B4DA0;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--purple-deep);
+    color: var(--white);
+    font-family: 'Barlow', sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(15,7,32,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--purple-border);
+    padding: 0 40px;
+    height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .nav-hex {
+    width: 32px; height: 32px;
+    background: var(--gold);
+    clip-path: polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px; font-weight: 800;
+    color: var(--purple-dark);
+    flex-shrink: 0;
+  }
+  .nav-wordmark {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 24px; font-weight: 800;
+    color: var(--white); letter-spacing: 0.5px;
+  }
+  .nav-wordmark span { color: var(--gold); }
+  .nav-links { display: flex; align-items: center; gap: 32px; }
+  .nav-link {
+    font-size: 14px; font-weight: 500;
+    color: var(--purple-muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .nav-link:hover { color: var(--white); }
+  .nav-cta {
+    background: var(--gold);
+    color: var(--purple-dark);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 15px; font-weight: 800;
+    letter-spacing: 0.5px;
+    padding: 9px 22px;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: background 0.2s, transform 0.15s;
+  }
+  .nav-cta:hover { background: var(--gold-light); transform: translateY(-1px); }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    padding: 100px 40px 60px;
+  }
+
+  /* Hex grid background */
+  .hero-bg {
+    position: absolute; inset: 0;
+    background: var(--purple-deep);
+    overflow: hidden;
+  }
+  .hero-bg svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  /* Glow orbs */
+  .hero-bg::before {
+    content: '';
+    position: absolute;
+    top: 20%; left: 50%;
+    transform: translateX(-50%);
+    width: 600px; height: 400px;
+    background: radial-gradient(ellipse, rgba(83,74,183,0.25) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-bg::after {
+    content: '';
+    position: absolute;
+    top: 60%; left: 20%;
+    width: 300px; height: 300px;
+    background: radial-gradient(ellipse, rgba(245,166,35,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-content {
+    position: relative; z-index: 2;
+    max-width: 900px;
+    text-align: center;
+  }
+
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--gold-dim);
+    border: 1px solid rgba(245,166,35,0.3);
+    border-radius: 100px;
+    padding: 6px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 600;
+    color: var(--gold);
+    letter-spacing: 0.05em;
+    margin-bottom: 32px;
+    animation: fadeUp 0.6s ease both;
+  }
+  .hero-badge-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .hero-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: clamp(52px, 8vw, 96px);
+    font-weight: 900;
+    line-height: 0.95;
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+  .hero-title .gold { color: var(--gold); }
+  .hero-title .dim { color: var(--purple-muted); font-weight: 400; }
+
+  .hero-sub {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: clamp(28px, 4vw, 48px);
+    font-weight: 600;
+    color: var(--purple-muted);
+    letter-spacing: 0.02em;
+    margin-bottom: 28px;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+
+  .hero-desc {
+    font-size: 18px; font-weight: 400;
+    color: var(--text-secondary);
+    max-width: 620px; margin: 0 auto 40px;
+    line-height: 1.65;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+  .hero-desc strong { color: var(--white); font-weight: 600; }
+
+  .hero-ctas {
+    display: flex; align-items: center; justify-content: center;
+    gap: 16px; flex-wrap: wrap;
+    margin-bottom: 64px;
+    animation: fadeUp 0.6s 0.4s ease both;
+  }
+  .btn-primary {
+    background: var(--gold);
+    color: var(--purple-dark);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px; font-weight: 800;
+    letter-spacing: 0.5px;
+    padding: 14px 36px;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.2s;
+    box-shadow: 0 0 30px rgba(245,166,35,0.25);
+  }
+  .btn-primary:hover {
+    background: var(--gold-light);
+    transform: translateY(-2px);
+    box-shadow: 0 0 40px rgba(245,166,35,0.4);
+  }
+  .btn-secondary {
+    background: transparent;
+    color: var(--purple-muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px; font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 14px 36px;
+    border-radius: 8px;
+    border: 1px solid var(--purple-border);
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover { border-color: var(--purple-muted); color: var(--white); }
+
+  /* Stats bar */
+  .hero-stats {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0;
+    background: var(--purple-surface);
+    border: 1px solid var(--purple-border);
+    border-radius: 12px;
+    overflow: hidden;
+    animation: fadeUp 0.6s 0.5s ease both;
+  }
+  .stat-item {
+    flex: 1; padding: 20px 24px;
+    text-align: center;
+    border-right: 1px solid var(--purple-border);
+    position: relative;
+  }
+  .stat-item:last-child { border-right: none; }
+  .stat-val {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 36px; font-weight: 900;
+    color: var(--white);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-val .accent { color: var(--gold); }
+  .stat-val .green { color: var(--green); }
+  .stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 600;
+    color: var(--purple-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── PROOF BAR ── */
+  .proof-bar {
+    background: var(--purple-dark);
+    border-top: 1px solid var(--purple-border);
+    border-bottom: 1px solid var(--purple-border);
+    padding: 16px 40px;
+    overflow: hidden;
+  }
+  .proof-track {
+    display: flex; gap: 60px;
+    animation: scrollLeft 30s linear infinite;
+    width: max-content;
+  }
+  .proof-item {
+    display: flex; align-items: center; gap: 10px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .proof-hit {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 600;
+    color: var(--green);
+  }
+  .proof-miss {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 600;
+    color: var(--red);
+  }
+  .proof-text { font-size: 13px; color: var(--purple-muted); }
+  .proof-pct {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 15px; font-weight: 700;
+    color: var(--gold);
+  }
+  @keyframes scrollLeft {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  /* ── SECTION WRAPPER ── */
+  .section { padding: 100px 40px; max-width: 1100px; margin: 0 auto; }
+  .section-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 600;
+    color: var(--gold);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: clamp(36px, 5vw, 56px);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.5px;
+    margin-bottom: 20px;
+  }
+  .section-desc {
+    font-size: 17px; color: var(--text-secondary);
+    max-width: 560px; line-height: 1.65;
+  }
+
+  /* ── HOW IT WORKS ── */
+  .how-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: start;
+    margin-top: 60px;
+  }
+
+  .how-steps { display: flex; flex-direction: column; gap: 0; }
+  .how-step {
+    display: flex; gap: 20px;
+    padding: 28px 0;
+    border-bottom: 1px solid var(--purple-border);
+    position: relative;
+  }
+  .how-step:last-child { border-bottom: none; }
+  .step-num {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 48px; font-weight: 900;
+    color: var(--purple-border);
+    line-height: 1;
+    min-width: 48px;
+    transition: color 0.3s;
+  }
+  .how-step:hover .step-num { color: var(--gold); }
+  .step-content {}
+  .step-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px; font-weight: 700;
+    color: var(--white);
+    margin-bottom: 6px;
+    letter-spacing: 0.2px;
+  }
+  .step-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+
+  /* Matrix demo card */
+  .matrix-demo {
+    background: var(--purple-dark);
+    border: 1px solid var(--purple-border);
+    border-radius: 16px;
+    overflow: hidden;
+    position: sticky; top: 84px;
+  }
+  .matrix-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--purple-border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .matrix-header-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 600;
+    color: var(--purple-muted);
+    letter-spacing: 0.08em;
+  }
+  .matrix-live {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--green);
+  }
+  .matrix-live-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+    animation: pulse 2s infinite;
+  }
+  .matrix-player {
+    padding: 16px 20px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--purple-border);
+  }
+  .player-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--purple-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px; font-weight: 800; color: var(--white);
+  }
+  .player-name { font-size: 15px; font-weight: 700; color: var(--white); }
+  .player-meta { font-size: 12px; color: var(--purple-muted); }
+  .matrix-condition {
+    padding: 12px 20px;
+    background: rgba(245,166,35,0.06);
+    border-bottom: 1px solid var(--purple-border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--gold);
+  }
+  .matrix-condition span { color: var(--purple-muted); }
+  .matrix-rows { padding: 12px 20px; display: flex; flex-direction: column; gap: 8px; }
+  .matrix-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px;
+    background: var(--purple-surface);
+    border-radius: 8px;
+    border: 1px solid var(--purple-border);
+  }
+  .matrix-row-label { font-size: 13px; color: var(--text-secondary); }
+  .matrix-row-right { display: flex; align-items: center; gap: 12px; }
+  .matrix-pct {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 20px; font-weight: 800;
+  }
+  .pct-green { color: var(--green); }
+  .pct-gold { color: var(--gold); }
+  .pct-red { color: var(--red); }
+  .matrix-sample {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--text-muted);
+  }
+  .hit-bar-wrap { padding: 0 20px 16px; }
+  .hit-bar-track {
+    height: 3px; background: var(--purple-border);
+    border-radius: 2px; margin-top: 4px;
+  }
+  .hit-bar-fill { height: 3px; border-radius: 2px; }
+
+  /* ── TIERS ── */
+  .tiers-wrap { padding: 100px 40px; background: var(--purple-dark); }
+  .tiers-inner { max-width: 1100px; margin: 0 auto; }
+  .tiers-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.1fr 1fr;
+    gap: 20px;
+    margin-top: 60px;
+    align-items: start;
+  }
+  .tier-card {
+    background: var(--purple-deep);
+    border: 1px solid var(--purple-border);
+    border-radius: 16px;
+    padding: 32px;
+    position: relative;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .tier-card:hover { transform: translateY(-4px); }
+  .tier-card.featured {
+    border-color: var(--gold);
+    background: #1a0d38;
+    box-shadow: 0 0 40px rgba(245,166,35,0.12);
+  }
+  .tier-badge-wrap {
+    position: absolute; top: -1px; left: 50%;
+    transform: translateX(-50%);
+  }
+  .tier-badge-pill {
+    background: var(--gold);
+    color: var(--purple-dark);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 800;
+    letter-spacing: 0.08em;
+    padding: 4px 14px;
+    border-radius: 0 0 8px 8px;
+    white-space: nowrap;
+  }
+  .tier-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 600;
+    color: var(--gold);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .tier-price {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 56px; font-weight: 900;
+    color: var(--white);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .tier-price sup {
+    font-size: 24px; font-weight: 600;
+    vertical-align: top; margin-top: 10px;
+    color: var(--purple-muted);
+  }
+  .tier-period { font-size: 14px; color: var(--purple-muted); margin-bottom: 8px; }
+  .tier-note { font-size: 13px; color: var(--text-muted); font-style: italic; margin-bottom: 24px; }
+  .tier-divider { height: 1px; background: var(--purple-border); margin-bottom: 24px; }
+  .tier-features { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+  .tier-feature { display: flex; gap: 10px; align-items: flex-start; }
+  .feat-dot {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 1.5px solid var(--purple-border);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 2px;
+  }
+  .feat-dot-inner {
+    width: 7px; height: 7px; border-radius: 50%;
+  }
+  .tier-card.featured .feat-dot { border-color: var(--gold); }
+  .tier-card.featured .feat-dot-inner { background: var(--gold); }
+  .feat-dot-inner-default { background: var(--purple-muted); }
+  .feat-text { font-size: 14px; color: var(--text-secondary); line-height: 1.4; }
+  .feat-text strong { color: var(--white); }
+  .tier-btn {
+    display: block; width: 100%;
+    padding: 14px;
+    border-radius: 8px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 17px; font-weight: 800;
+    letter-spacing: 0.5px;
+    text-align: center;
+    text-decoration: none;
+    transition: all 0.2s;
+    cursor: pointer;
+    border: none;
+  }
+  .tier-btn-primary {
+    background: var(--gold);
+    color: var(--purple-dark);
+    box-shadow: 0 0 20px rgba(245,166,35,0.2);
+  }
+  .tier-btn-primary:hover {
+    background: var(--gold-light);
+    box-shadow: 0 0 30px rgba(245,166,35,0.35);
+    transform: translateY(-1px);
+  }
+  .tier-btn-ghost {
+    background: transparent;
+    color: var(--purple-muted);
+    border: 1px solid var(--purple-border);
+  }
+  .tier-btn-ghost:hover { border-color: var(--purple-muted); color: var(--white); }
+
+  /* Season notice */
+  .season-notice {
+    background: rgba(245,166,35,0.07);
+    border: 1px solid rgba(245,166,35,0.2);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 40px;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .notice-icon {
+    font-size: 18px; flex-shrink: 0; margin-top: 2px;
+  }
+  .notice-text { font-size: 14px; color: var(--text-secondary); line-height: 1.55; }
+  .notice-text strong { color: var(--gold); }
+
+  /* ── ABOUT / PROOF ── */
+  .about-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: start;
+  }
+  .about-text p {
+    font-size: 16px; color: var(--text-secondary);
+    line-height: 1.75; margin-bottom: 20px;
+  }
+  .about-text p strong { color: var(--white); }
+  .about-text p:last-child { margin-bottom: 0; }
+
+  .results-card {
+    background: var(--purple-dark);
+    border: 1px solid var(--purple-border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .results-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--purple-border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .results-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 600;
+    color: var(--purple-muted); letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .results-week { font-size: 12px; color: var(--text-muted); }
+  .results-big {
+    padding: 28px 20px;
+    text-align: center;
+    border-bottom: 1px solid var(--purple-border);
+  }
+  .results-fraction {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 64px; font-weight: 900;
+    color: var(--green); line-height: 1;
+    margin-bottom: 4px;
+  }
+  .results-label { font-size: 13px; color: var(--purple-muted); }
+  .results-list { padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; }
+  .result-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px;
+    background: var(--purple-surface);
+    border-radius: 7px;
+  }
+  .result-pick { font-size: 13px; color: var(--text-secondary); }
+  .result-hit {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 600; color: var(--green);
+  }
+  .result-miss {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 600; color: var(--red);
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--purple-dark);
+    border-top: 1px solid var(--purple-border);
+    padding: 48px 40px;
+  }
+  .footer-inner {
+    max-width: 1100px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 24px;
+  }
+  .footer-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .footer-copy { font-size: 13px; color: var(--text-muted); }
+  .footer-links { display: flex; gap: 24px; }
+  .footer-link {
+    font-size: 13px; color: var(--purple-muted);
+    text-decoration: none; transition: color 0.2s;
+  }
+  .footer-link:hover { color: var(--gold); }
+
+  /* ── LUXURY PREMIUM LAYER ── */
+
+  /* Ultra-fine grain overlay on body for texture depth */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 999; pointer-events: none;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+  }
+
+  /* Gold shimmer animation on featured tier card */
+  @keyframes shimmer {
+    0% { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+  .tier-card.featured::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(105deg,
+      transparent 30%,
+      rgba(245,166,35,0.04) 45%,
+      rgba(255,209,102,0.06) 50%,
+      rgba(245,166,35,0.04) 55%,
+      transparent 70%
+    );
+    background-size: 800px 100%;
+    animation: shimmer 6s infinite linear;
+    pointer-events: none; border-radius: 16px;
+  }
+
+  /* Letter-spacing refinements for luxury feel */
+  .section-tag { letter-spacing: 0.18em; }
+  .tier-name { letter-spacing: 0.2em; }
+
+  /* Refined nav — thinner, more refined */
+  nav { border-bottom-color: rgba(45,26,90,0.8); }
+
+  /* Premium card hover — gold border trace */
+  .tier-card:not(.featured):hover { border-color: rgba(245,166,35,0.3); }
+
+  /* Stat bar gold accent line */
+  .stat-item:first-child { border-left: 2px solid var(--gold); }
+
+  /* ── END LUXURY LAYER ── */
+  @media (max-width: 768px) {
+    nav { padding: 0 20px; }
+    .nav-links { display: none; }
+    .hero { padding: 90px 20px 50px; }
+    .hero-stats { flex-direction: column; }
+    .stat-item { border-right: none; border-bottom: 1px solid var(--purple-border); }
+    .stat-item:last-child { border-bottom: none; }
+    .section { padding: 60px 20px; }
+    .how-grid { grid-template-columns: 1fr; }
+    .matrix-demo { position: static; }
+    .tiers-wrap { padding: 60px 20px; }
+    .tiers-grid { grid-template-columns: 1fr; }
+    .about-grid { grid-template-columns: 1fr; gap: 40px; }
+    footer { padding: 32px 20px; }
+    .footer-inner { flex-direction: column; align-items: flex-start; }
+    .three-windows { grid-template-columns: 1fr !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="nav-hex">IQ</div>
+    <div class="nav-wordmark">PropBet<span>IQ</span></div>
+  </a>
+  <div class="nav-links">
+    <a href="#how" class="nav-link">How it works</a>
+    <a href="#tiers" class="nav-link">Pricing</a>
+    <a href="#about" class="nav-link">About</a>
+    <a href="#tiers" class="nav-cta">Join PropBetIQ</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg">
+    <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="heroGlow1" cx="50%" cy="45%" r="55%">
+          <stop offset="0%" stop-color="#2A1650" stop-opacity="0.9"/>
+          <stop offset="100%" stop-color="#0F0720" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="heroGlow2" cx="15%" cy="70%" r="35%">
+          <stop offset="0%" stop-color="#F5A623" stop-opacity="0.05"/>
+          <stop offset="100%" stop-color="#F5A623" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="heroGlow3" cx="85%" cy="30%" r="30%">
+          <stop offset="0%" stop-color="#534AB7" stop-opacity="0.1"/>
+          <stop offset="100%" stop-color="#534AB7" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="white" stop-opacity="0"/>
+          <stop offset="30%" stop-color="white" stop-opacity="0.04"/>
+          <stop offset="70%" stop-color="white" stop-opacity="0.04"/>
+          <stop offset="100%" stop-color="white" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="lineGradV" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="white" stop-opacity="0"/>
+          <stop offset="40%" stop-color="white" stop-opacity="0.03"/>
+          <stop offset="60%" stop-color="white" stop-opacity="0.03"/>
+          <stop offset="100%" stop-color="white" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <!-- Solid base -->
+      <rect width="1200" height="800" fill="#0F0720"/>
+      <!-- Glow layers -->
+      <rect width="1200" height="800" fill="url(#heroGlow1)"/>
+      <rect width="1200" height="800" fill="url(#heroGlow2)"/>
+      <rect width="1200" height="800" fill="url(#heroGlow3)"/>
+      <!-- Subtle horizontal white rule lines -->
+      <rect x="0" y="160" width="1200" height="0.5" fill="url(#lineGrad)"/>
+      <rect x="0" y="320" width="1200" height="0.5" fill="url(#lineGrad)"/>
+      <rect x="0" y="480" width="1200" height="0.5" fill="url(#lineGrad)"/>
+      <rect x="0" y="640" width="1200" height="0.5" fill="url(#lineGrad)"/>
+      <!-- Subtle vertical white rule lines -->
+      <rect x="200" y="0" width="0.5" height="800" fill="url(#lineGradV)"/>
+      <rect x="400" y="0" width="0.5" height="800" fill="url(#lineGradV)"/>
+      <rect x="600" y="0" width="0.5" height="800" fill="url(#lineGradV)"/>
+      <rect x="800" y="0" width="0.5" height="800" fill="url(#lineGradV)"/>
+      <rect x="1000" y="0" width="0.5" height="800" fill="url(#lineGradV)"/>
+      <!-- Single elegant hex outline, centered -->
+      <polygon points="600,120 720,188 720,324 600,392 480,324 480,188"
+        fill="none" stroke="white" stroke-width="0.5" opacity="0.06"/>
+      <polygon points="600,160 700,216 700,328 600,384 500,328 500,216"
+        fill="none" stroke="white" stroke-width="0.3" opacity="0.04"/>
+      <!-- Gold accent hex mark -->
+      <polygon points="600,172 628,188 628,220 600,236 572,220 572,188"
+        fill="#1C0F3A" stroke="#F5A623" stroke-width="0.8" opacity="0.45"/>
+      <text x="600" y="212" text-anchor="middle"
+        font-family="'Barlow Condensed', sans-serif"
+        font-size="16" font-weight="900" fill="#F5A623" opacity="0.6">IQ</text>
+      <!-- Far-edge ghost data hints -->
+      <g font-family="'JetBrains Mono', monospace" font-size="11" opacity="0.12">
+        <text x="60" y="340" fill="white">78%</text>
+        <text x="60" y="358" fill="white">Q1 → Full Game</text>
+        <text x="1050" y="280" fill="white">HIT ✓</text>
+        <text x="1050" y="298" fill="white">O26.5 pts</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="hero-content">
+    <div class="hero-badge">
+      <div class="hero-badge-dot"></div>
+      NBA PLAYOFFS 2026 · LIVE NOW
+    </div>
+    <div class="hero-title">
+      Most bettors<br><span class="gold">guess.</span>
+    </div>
+    <div class="hero-sub">PropBetIQ members know.</div>
+    <p class="hero-desc">
+      Most bettors go on gut instinct or act on what they heard on a podcast — with zero data. PropBetIQ gives you <strong>hit rate data on every major prop market</strong> and — starting at Pro — the <strong>conditional matrices</strong> that turn live game trends into data-backed in-game bets. That intelligence doesn't exist anywhere else.
+    </p>
+    <div class="hero-ctas">
+      <a href="#tiers" class="btn-primary">Join PropBetIQ — as low as $2/mo</a>
+      <a href="#how" class="btn-secondary">See how it works</a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat-item">
+        <div class="stat-val">100<span class="accent">+</span></div>
+        <div class="stat-label">Players tracked</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val">8<span class="accent">+</span></div>
+        <div class="stat-label">Data splits</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val"><span class="green">71%</span></div>
+        <div class="stat-label">Season hit rate</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val">Nightly</div>
+        <div class="stat-label">Prop sheets</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROOF TICKER -->
+<div class="proof-bar">
+  <div class="proof-track">
+    <div class="proof-item"><span class="proof-hit">HIT ✓</span><span class="proof-text">Edwards O29.5 pts</span><span class="proof-pct">78%</span></div>
+    <div class="proof-item"><span class="proof-hit">HIT ✓</span><span class="proof-text">Edwards O29.5 pts</span><span class="proof-pct">73%</span></div>
+    <div class="proof-item"><span class="proof-miss">MISS ✗</span><span class="proof-text">KAT O9.5 reb</span><span class="proof-pct">44%</span></div>
+    <div class="proof-item"><span class="proof-hit">HIT ✓</span><span class="proof-text">Luka O31.5 pts</span><span class="proof-pct">81%</span></div>
+    <div class="proof-item"><span class="proof-hit">HIT ✓</span><span class="proof-text">Tatum O25.5 pts</span><span class="proof-pct">67%</span></div>
+    <div class="proof-item"><span class="proof-hit">HIT ✓</span><span class="proof-text">SGA O28.5 pts</span><span class="proof-pct">76%</span></div>
+    <div class="proof-item"><span class="proof-miss">MISS ✗</span><span class="proof-text">Bam O8.5 reb</span><span class="proof-pct">39%</span></div>
+    <div class="proof-item"><span class="proof-hit">HIT ✓</span><span class="proof-text">Jokic O11.5 ast</span><span class="proof-pct">82%</span></div>
+    <!-- Duplicate for seamless loop -->
+    <div class="proof-item"><span class="proof-hit">HIT ✓</span><span class="proof-text">Edwards O29.5 pts</span><span class="proof-pct">78%</span></div>
+    <div class="proof-item"><span class="proof-hit">HIT ✓</span><span class="proof-text">Edwards O29.5 pts</span><span class="proof-pct">73%</span></div>
+    <div class="proof-item"><span class="proof-miss">MISS ✗</span><span class="proof-text">KAT O9.5 reb</span><span class="proof-pct">44%</span></div>
+    <div class="proof-item"><span class="proof-hit">HIT ✓</span><span class="proof-text">Luka O31.5 pts</span><span class="proof-pct">81%</span></div>
+    <div class="proof-item"><span class="proof-hit">HIT ✓</span><span class="proof-text">Tatum O25.5 pts</span><span class="proof-pct">67%</span></div>
+    <div class="proof-item"><span class="proof-hit">HIT ✓</span><span class="proof-text">SGA O28.5 pts</span><span class="proof-pct">76%</span></div>
+    <div class="proof-item"><span class="proof-miss">MISS ✗</span><span class="proof-text">Bam O8.5 reb</span><span class="proof-pct">39%</span></div>
+    <div class="proof-item"><span class="proof-hit">HIT ✓</span><span class="proof-text">Jokic O11.5 ast</span><span class="proof-pct">82%</span></div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how">
+  <div class="section-tag">How it works</div>
+  <h2 class="section-title">One product.<br>Three levels of intelligence.</h2>
+  <p class="section-desc">Most bettors go on gut instinct or what they heard on a podcast — no data behind it. PropBetIQ starts with hit rate data on every major prop market, then unlocks conditional matrices that let you turn live game trends into smarter in-game bets. That conditional layer is built from <strong style="color:var(--white);">this season's data</strong> and doesn't exist anywhere else as a consumer tool.</p>
+
+  <!-- Three tier preview cards -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px;margin-bottom:64px;">
+
+    <!-- Starter card -->
+    <div style="background:var(--purple-dark);border:1px solid var(--purple-border);border-radius:14px;overflow:hidden;">
+      <div style="padding:20px 20px 14px;border-bottom:1px solid var(--purple-border);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--purple-muted);letter-spacing:0.12em;">STARTER · $2/MO</div>
+        </div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--white);line-height:1.2;">Hit rate data on every major prop</div>
+        <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;line-height:1.55;">Pre-game research across 10+ stat markets. Before you place a bet, know how often it actually hits.</div>
+      </div>
+      <div style="padding:14px 20px;">
+        <div style="font-size:10px;font-weight:600;color:var(--text-muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;font-family:'JetBrains Mono',monospace;">Stat markets included</div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;justify-content:space-between;font-size:11px;">
+            <span style="color:var(--text-secondary);">Points / Assists / Rebounds</span>
+            <span style="color:var(--green);font-weight:700;">✓</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;">
+            <span style="color:var(--text-secondary);">3PM, 3PA, FTM, FGM, Stl, Blk, Tov</span>
+            <span style="color:var(--green);font-weight:700;">✓</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;">
+            <span style="color:var(--text-secondary);">Combo bets — PRA, Pts+Ast, Pts+Reb</span>
+            <span style="color:var(--green);font-weight:700;">✓</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;">
+            <span style="color:var(--text-secondary);">Q1 standalone props</span>
+            <span style="color:var(--green);font-weight:700;">✓</span>
+          </div>
+          <div style="margin-top:6px;display:flex;justify-content:space-between;font-size:11px;">
+            <span style="color:var(--text-muted);font-style:italic;">Conditional matrices</span>
+            <span style="color:var(--red);">✗</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pro card -->
+    <div style="background:var(--purple-dark);border:1px solid var(--gold);border-radius:14px;overflow:hidden;box-shadow:0 0 28px rgba(245,166,35,0.07);">
+      <div style="padding:20px 20px 14px;border-bottom:1px solid var(--purple-border);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--gold);letter-spacing:0.12em;">PRO · $5/MO ⭐</div>
+        </div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--white);line-height:1.2;">The conditional matrix — Q1, H1, and Q3</div>
+        <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;line-height:1.55;">Player trending in Q1? See what history says about his full game — right now. Updated every game day.</div>
+      </div>
+      <div style="padding:14px 20px;">
+        <div style="font-size:10px;font-weight:600;color:var(--text-muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;font-family:'JetBrains Mono',monospace;">When Edwards has 7+ Q1 points</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="font-size:11px;color:var(--text-secondary);width:80px;flex-shrink:0;">O 24.5 pts</div>
+            <div style="flex:1;height:6px;background:var(--purple-surface);border-radius:3px;overflow:hidden;"><div style="width:81%;height:100%;background:var(--green);border-radius:3px;"></div></div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:var(--green);width:36px;text-align:right;">81%</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="font-size:11px;color:var(--text-secondary);width:80px;flex-shrink:0;">O 27.5 pts</div>
+            <div style="flex:1;height:6px;background:var(--purple-surface);border-radius:3px;overflow:hidden;"><div style="width:76%;height:100%;background:var(--green);border-radius:3px;"></div></div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:var(--green);width:36px;text-align:right;">76%</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="font-size:11px;color:var(--text-secondary);width:80px;flex-shrink:0;">O 29.5 pts</div>
+            <div style="flex:1;height:6px;background:var(--purple-surface);border-radius:3px;overflow:hidden;"><div style="width:61%;height:100%;background:var(--gold);border-radius:3px;"></div></div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:var(--gold);width:36px;text-align:right;">61%</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="font-size:11px;color:var(--text-secondary);width:80px;flex-shrink:0;">O 31.5 pts</div>
+            <div style="flex:1;height:6px;background:var(--purple-surface);border-radius:3px;overflow:hidden;"><div style="width:42%;height:100%;background:var(--red);border-radius:3px;"></div></div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:var(--red);width:36px;text-align:right;">42%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sharp card -->
+    <div style="background:var(--purple-dark);border:1px solid var(--purple-border);border-radius:14px;overflow:hidden;">
+      <div style="padding:20px 20px 14px;border-bottom:1px solid var(--purple-border);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--purple-muted);letter-spacing:0.12em;">SHARP · $9/MO</div>
+        </div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--white);line-height:1.2;">Every context split. Maximum edge.</div>
+        <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;line-height:1.55;">Six conditional data cuts — playoffs, last 10, home, away, regular season, and vs tonight's opponent.</div>
+      </div>
+      <div style="padding:14px 20px;">
+        <div style="font-size:10px;font-weight:600;color:var(--text-muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;font-family:'JetBrains Mono',monospace;">Data splits unlocked</div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:var(--text-secondary);">Playoffs data only</span><span style="color:var(--green);font-weight:700;">✓</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:var(--text-secondary);">Last 10 games — current form</span><span style="color:var(--green);font-weight:700;">✓</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:var(--text-secondary);">Home games / Away games</span><span style="color:var(--green);font-weight:700;">✓</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:var(--text-secondary);">Regular season full baseline</span><span style="color:var(--green);font-weight:700;">✓</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:var(--text-secondary);">vs Tonight's opponent specifically</span><span style="color:var(--green);font-weight:700;">✓</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="how-grid">
+    <div class="how-steps">
+      <div class="how-step">
+        <div class="step-num">01</div>
+        <div class="step-content">
+          <div class="step-title">Research your props before tip-off</div>
+          <div class="step-desc">Every tier gives you hit rate data across points, assists, rebounds, combo bets, and more. Before you place anything, know how often that line actually hits — from this season's data.</div>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="step-num">02</div>
+        <div class="step-content">
+          <div class="step-title">Q1 ends — open the matrix</div>
+          <div class="step-desc">Pro and above. Player dropped 8 points and 3 assists in Q1? Filter by that exact split and see how often he hits the full-game over historically. The data answers in seconds.</div>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="step-num">03</div>
+        <div class="step-content">
+          <div class="step-title">Halftime — check the live line</div>
+          <div class="step-desc">The line shifted at halftime. Is it still worth it based on his first-half total? The H1 conditional matrix tells you. Same tool, different window. Same edge.</div>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="step-num">04</div>
+        <div class="step-content">
+          <div class="step-title">Sharp: filter by context, not just stats</div>
+          <div class="step-desc">How does this player perform specifically away from home, against tonight's opponent, over his last 10 games? Sharp members have six context splits to answer that exact question.</div>
+        </div>
+      </div>
+    </div>
+          <div class="step-desc">Player has 4 points and 2 assists after Q1? Pull up the matrix. See exactly how often players with that Q1 profile hit the full-game over. In seconds, not minutes.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live demo card with tabs -->
+    <div class="matrix-demo">
+      <div class="matrix-header">
+        <div class="matrix-header-title">PROPIQ MATRIX DEMO</div>
+        <div class="matrix-live"><div class="matrix-live-dot"></div>LIVE</div>
+      </div>
+      <div class="matrix-player">
+        <div class="player-avatar">AE</div>
+        <div>
+          <div class="player-name">Anthony Edwards</div>
+          <div class="player-meta">MIN · SG · Tonight 7:30 PM ET</div>
+        </div>
+      </div>
+      <!-- Window tabs -->
+      <div style="display:flex;border-bottom:1px solid var(--purple-border);">
+        <button onclick="showWindow('q1')" id="tab-q1" style="flex:1;padding:10px 6px;background:var(--gold-dim);border:none;border-bottom:2px solid var(--gold);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--gold);cursor:pointer;letter-spacing:0.06em;">Q1</button>
+        <button onclick="showWindow('h1')" id="tab-h1" style="flex:1;padding:10px 6px;background:transparent;border:none;border-bottom:2px solid transparent;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--purple-muted);cursor:pointer;letter-spacing:0.06em;">FIRST HALF</button>
+        <button onclick="showWindow('q3')" id="tab-q3" style="flex:1;padding:10px 6px;background:transparent;border:none;border-bottom:2px solid transparent;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--purple-muted);cursor:pointer;letter-spacing:0.06em;">THRU Q3</button>
+      </div>
+      <!-- Q1 window -->
+      <div id="win-q1">
+        <div class="matrix-condition"><span>Condition: </span>When Edwards has 3+ Q1 assists</div>
+        <div class="matrix-rows">
+          <div class="matrix-row"><div class="matrix-row-label">Over 24.5 pts</div><div class="matrix-row-right"><div class="matrix-pct pct-green">81%</div><div class="matrix-sample">14/17</div></div></div>
+          <div class="hit-bar-wrap"><div class="hit-bar-track"><div class="hit-bar-fill" style="width:81%;background:var(--green);"></div></div></div>
+          <div class="matrix-row"><div class="matrix-row-label">Over 26.5 pts</div><div class="matrix-row-right"><div class="matrix-pct pct-green">78%</div><div class="matrix-sample">14/18</div></div></div>
+          <div class="hit-bar-wrap"><div class="hit-bar-track"><div class="hit-bar-fill" style="width:78%;background:var(--green);"></div></div></div>
+          <div class="matrix-row"><div class="matrix-row-label">Over 28.5 pts</div><div class="matrix-row-right"><div class="matrix-pct pct-gold">61%</div><div class="matrix-sample">11/18</div></div></div>
+          <div class="hit-bar-wrap"><div class="hit-bar-track"><div class="hit-bar-fill" style="width:61%;background:var(--gold);"></div></div></div>
+          <div class="matrix-row"><div class="matrix-row-label">Over 30.5 pts</div><div class="matrix-row-right"><div class="matrix-pct pct-red">44%</div><div class="matrix-sample">8/18</div></div></div>
+          <div class="hit-bar-wrap"><div class="hit-bar-track"><div class="hit-bar-fill" style="width:44%;background:var(--red);"></div></div></div>
+        </div>
+      </div>
+      <!-- H1 window -->
+      <div id="win-h1" style="display:none;">
+        <div class="matrix-condition"><span>Condition: </span>When Edwards has 12+ First Half points</div>
+        <div class="matrix-rows">
+          <div class="matrix-row"><div class="matrix-row-label">Over 24.5 pts</div><div class="matrix-row-right"><div class="matrix-pct pct-green">83%</div><div class="matrix-sample">20/24</div></div></div>
+          <div class="hit-bar-wrap"><div class="hit-bar-track"><div class="hit-bar-fill" style="width:83%;background:var(--green);"></div></div></div>
+          <div class="matrix-row"><div class="matrix-row-label">Over 26.5 pts</div><div class="matrix-row-right"><div class="matrix-pct pct-green">75%</div><div class="matrix-sample">18/24</div></div></div>
+          <div class="hit-bar-wrap"><div class="hit-bar-track"><div class="hit-bar-fill" style="width:75%;background:var(--green);"></div></div></div>
+          <div class="matrix-row"><div class="matrix-row-label">Over 28.5 pts</div><div class="matrix-row-right"><div class="matrix-pct pct-gold">58%</div><div class="matrix-sample">14/24</div></div></div>
+          <div class="hit-bar-wrap"><div class="hit-bar-track"><div class="hit-bar-fill" style="width:58%;background:var(--gold);"></div></div></div>
+          <div class="matrix-row"><div class="matrix-row-label">Over 30.5 pts</div><div class="matrix-row-right"><div class="matrix-pct pct-gold">54%</div><div class="matrix-sample">13/24</div></div></div>
+          <div class="hit-bar-wrap"><div class="hit-bar-track"><div class="hit-bar-fill" style="width:54%;background:var(--gold);"></div></div></div>
+        </div>
+      </div>
+      <!-- Q3 window -->
+      <div id="win-q3" style="display:none;">
+        <div class="matrix-condition"><span>Condition: </span>When Edwards has 20+ points through Q3</div>
+        <div class="matrix-rows">
+          <div class="matrix-row"><div class="matrix-row-label">Over 22.5 pts</div><div class="matrix-row-right"><div class="matrix-pct pct-green">94%</div><div class="matrix-sample">16/17</div></div></div>
+          <div class="hit-bar-wrap"><div class="hit-bar-track"><div class="hit-bar-fill" style="width:94%;background:var(--green);"></div></div></div>
+          <div class="matrix-row"><div class="matrix-row-label">Over 24.5 pts</div><div class="matrix-row-right"><div class="matrix-pct pct-green">88%</div><div class="matrix-sample">15/17</div></div></div>
+          <div class="hit-bar-wrap"><div class="hit-bar-track"><div class="hit-bar-fill" style="width:88%;background:var(--green);"></div></div></div>
+          <div class="matrix-row"><div class="matrix-row-label">Over 26.5 pts</div><div class="matrix-row-right"><div class="matrix-pct pct-green">76%</div><div class="matrix-sample">13/17</div></div></div>
+          <div class="hit-bar-wrap"><div class="hit-bar-track"><div class="hit-bar-fill" style="width:76%;background:var(--green);"></div></div></div>
+          <div class="matrix-row"><div class="matrix-row-label">Over 28.5 pts</div><div class="matrix-row-right"><div class="matrix-pct pct-gold">65%</div><div class="matrix-sample">11/17</div></div></div>
+          <div class="hit-bar-wrap"><div class="hit-bar-track"><div class="hit-bar-fill" style="width:65%;background:var(--gold);"></div></div></div>
+        </div>
+      </div>
+      <script>
+        function showWindow(w) {
+          ['q1','h1','q3'].forEach(function(x) {
+            document.getElementById('win-'+x).style.display = x===w ? 'block' : 'none';
+            var tab = document.getElementById('tab-'+x);
+            tab.style.background = x===w ? 'rgba(245,166,35,0.12)' : 'transparent';
+            tab.style.borderBottomColor = x===w ? '#F5A623' : 'transparent';
+            tab.style.color = x===w ? '#F5A623' : '#9B86C0';
+          });
+        }
+      </script>
+    </div>
+  </div>
+</section>
+
+<!-- TIERS -->
+<div class="tiers-wrap" id="tiers">
+  <div class="tiers-inner">
+    <div class="section-tag">Membership</div>
+    <h2 class="section-title">Choose your tier</h2>
+    <p class="section-desc">Founding member pricing locked for the rest of the 2026 NBA Playoffs. All rates carry over to next season automatically.</p>
+
+    <div style="margin-top:32px;margin-bottom:40px;">
+      <!-- Discount banner -->
+      <div style="background:linear-gradient(135deg,#1a0d38 0%,#2A1650 100%);border:1px solid var(--gold);border-radius:14px;padding:24px 28px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:0;right:0;background:var(--gold);color:var(--purple-dark);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;letter-spacing:0.08em;padding:6px 16px;border-bottom-left-radius:10px;">🏆 PLAYOFF FOUNDING RATE</div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;margin-top:8px;">
+          <div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--white);margin-bottom:8px;">Prices below are for the 2026 NBA Playoffs only.</div>
+            <div style="font-size:14px;color:var(--text-secondary);line-height:1.6;">When PropBetIQ returns for the <strong style="color:var(--white);">2027–28 NBA season</strong>, prices increase. Join now and lock your founding rate — it carries over automatically.</div>
+          </div>
+          <div style="text-align:center;flex-shrink:0;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple-muted);letter-spacing:0.08em;margin-bottom:4px;">NEXT SEASON FROM</div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:900;color:var(--text-muted);text-decoration:line-through;line-height:1;">$10</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);letter-spacing:0.06em;">/month starter</div>
+          </div>
+        </div>
+        <!-- Tier comparison row -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:20px;padding-top:20px;border-top:1px solid var(--purple-border);">
+          <div style="text-align:center;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple-muted);letter-spacing:0.08em;margin-bottom:6px;">STARTER</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
+              <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--text-muted);text-decoration:line-through;">$10</div>
+              <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--green);">$2</div>
+            </div>
+            <div style="font-size:11px;color:var(--green);font-weight:600;">Save 80%</div>
+          </div>
+          <div style="text-align:center;border-left:1px solid var(--purple-border);border-right:1px solid var(--purple-border);">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:0.08em;margin-bottom:6px;">PRO ⭐</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
+              <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--text-muted);text-decoration:line-through;">$20</div>
+              <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--gold);">$5</div>
+            </div>
+            <div style="font-size:11px;color:var(--gold);font-weight:600;">Save 75%</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple-muted);letter-spacing:0.08em;margin-bottom:6px;">SHARP</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
+              <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--text-muted);text-decoration:line-through;">$35</div>
+              <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--white);">$9</div>
+            </div>
+            <div style="font-size:11px;color:var(--purple-muted);font-weight:600;">Save 74%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tiers-grid">
+      <!-- Starter -->
+      <div class="tier-card">
+        <div class="tier-name">Starter</div>
+        <div class="tier-price"><sup>$</sup>2</div>
+        <div class="tier-period">per month · 2026 playoffs</div>
+        <div class="tier-note">Pre-game research — the what</div>
+        <div class="tier-divider"></div>
+        <div class="tier-features">
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner feat-dot-inner-default"></div></div>
+            <div class="feat-text">Full-game hit rates — <strong>points, assists, rebounds</strong></div>
+          </div>
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner feat-dot-inner-default"></div></div>
+            <div class="feat-text">Extended markets — 3PM, 3PA, FTM, FGM, steals, blocks, turnovers</div>
+          </div>
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner feat-dot-inner-default"></div></div>
+            <div class="feat-text"><strong>Combo bet hit rates</strong> — PRA, Pts+Ast, Pts+Reb, Ast+Reb, Stl+Blk</div>
+          </div>
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner feat-dot-inner-default"></div></div>
+            <div class="feat-text">Q1 standalone prop lines</div>
+          </div>
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner feat-dot-inner-default"></div></div>
+            <div class="feat-text">100+ players · this season's data · updated nightly</div>
+          </div>
+        </div>
+        <a href="https://www.patreon.com/checkout/PropBetIQ?rid=28417582&vanity=15902684" class="tier-btn tier-btn-ghost">Join Starter</a>
+      </div>
+
+      <!-- Pro (featured) -->
+      <div class="tier-card featured">
+        <div class="tier-badge-wrap">
+          <div class="tier-badge-pill">⭐ MOST POPULAR</div>
+        </div>
+        <div class="tier-name">Pro</div>
+        <div class="tier-price"><sup>$</sup>5</div>
+        <div class="tier-period">per month · 2026 playoffs</div>
+        <div class="tier-note">Live in-game edge — the why</div>
+        <div class="tier-divider"></div>
+        <div class="tier-features">
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner" style="background:var(--gold);"></div></div>
+            <div class="feat-text">Everything in Starter</div>
+          </div>
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner" style="background:var(--gold);"></div></div>
+            <div class="feat-text"><strong>Conditional matrix unlocked</strong> — Q1, First Half &amp; Through-Q3</div>
+          </div>
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner" style="background:var(--gold);"></div></div>
+            <div class="feat-text">Filter any player by their in-game split and see full-game hit rates</div>
+          </div>
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner" style="background:var(--gold);"></div></div>
+            <div class="feat-text">Points, assists &amp; rebounds — all three stat types</div>
+          </div>
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner" style="background:var(--gold);"></div></div>
+            <div class="feat-text"><strong>Game Day Edge</strong> — top plays surfaced automatically</div>
+          </div>
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner" style="background:var(--gold);"></div></div>
+            <div class="feat-text">Combined regular season + playoffs data</div>
+          </div>
+        </div>
+        <a href="https://www.patreon.com/checkout/PropBetIQ?rid=28417584&vanity=15902684" class="tier-btn tier-btn-primary">Join Pro — $5/mo</a>
+      </div>
+
+      <!-- Sharp -->
+      <div class="tier-card">
+        <div class="tier-name">Sharp</div>
+        <div class="tier-price"><sup>$</sup>9</div>
+        <div class="tier-period">per month · 2026 playoffs</div>
+        <div class="tier-note">Six context splits — maximum edge</div>
+        <div class="tier-divider"></div>
+        <div class="tier-features">
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner feat-dot-inner-default"></div></div>
+            <div class="feat-text">Everything in Pro</div>
+          </div>
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner feat-dot-inner-default"></div></div>
+            <div class="feat-text"><strong>Playoffs only</strong> — how players perform when it matters most</div>
+          </div>
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner feat-dot-inner-default"></div></div>
+            <div class="feat-text"><strong>Last 10 games</strong> — current form, not season-long averages</div>
+          </div>
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner feat-dot-inner-default"></div></div>
+            <div class="feat-text"><strong>Home / Away splits</strong> — court matters</div>
+          </div>
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner feat-dot-inner-default"></div></div>
+            <div class="feat-text"><strong>vs Tonight's Opponent</strong> — how does this player perform against this specific team</div>
+          </div>
+          <div class="tier-feature">
+            <div class="feat-dot"><div class="feat-dot-inner feat-dot-inner-default"></div></div>
+            <div class="feat-text">Regular season full baseline data</div>
+          </div>
+        </div>
+        <a href="https://www.patreon.com/checkout/PropBetIQ?rid=28417587&vanity=15902684" class="tier-btn tier-btn-ghost">Join Sharp</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ABOUT + COMPARISON -->
+<section class="section" id="about">
+  <div class="about-grid">
+    <div>
+      <div class="section-tag">About PropBetIQ</div>
+      <h2 class="section-title" style="margin-bottom:32px;">Data professional.<br>Recreational bettor.<br>Built for both.</h2>
+      <div class="about-text">
+        <p>Most bettors go on gut feel or act on something they heard on a podcast — with no data behind it. PropBetIQ was built to change that.</p>
+        <p>I'm a data professional who built a prop analytics engine from <strong>this season's NBA data</strong>. Not career averages. Not multi-year blends. What's happening this season, with this roster, under these game conditions — updated every game day.</p>
+        <p>Starter gives you the data layer most bettors never think to check. Pro unlocks the conditional matrix — the tool that answers: <strong>"when this player has 8 points through Q1 tonight, how often have they hit the over historically?"</strong> Sharp goes deeper with six context splits no other tool provides. <strong>Self-serve. No opinions. Just data.</strong></p>
+      </div>
+      <div style="margin-top:32px;">
+        <a href="#tiers" class="btn-primary" style="display:inline-block;">Get started — as low as $2/mo</a>
+      </div>
+    </div>
+
+    <!-- Why PropBetIQ card replacing results tracker -->
+    <div style="background:var(--purple-dark);border:1px solid var(--purple-border);border-radius:16px;overflow:hidden;">
+      <div style="padding:20px 24px;border-bottom:1px solid var(--purple-border);display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--purple-muted);letter-spacing:0.1em;text-transform:uppercase;">Why PropBetIQ is different</div>
+        <div style="display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);"><div style="width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;"></div>CURRENT SEASON</div>
+      </div>
+      <!-- Comparison rows -->
+      <div style="padding:8px 24px 16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:4px;">
+          <div style="padding:8px 0;border-bottom:1px solid var(--purple-border);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--red);letter-spacing:0.06em;">EVERYONE ELSE</div>
+          <div style="padding:8px 0;border-bottom:1px solid var(--purple-border);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--green);letter-spacing:0.06em;padding-left:16px;">PROPIQ</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+          <div style="padding:12px 0 12px;border-bottom:1px solid rgba(45,26,90,0.5);">
+            <div style="font-size:13px;color:var(--text-secondary);">Season averages only</div>
+          </div>
+          <div style="padding:12px 0 12px 16px;border-bottom:1px solid rgba(45,26,90,0.5);">
+            <div style="font-size:13px;color:var(--white);font-weight:600;">Hit rates across 10+ markets</div>
+          </div>
+          <div style="padding:12px 0 12px;border-bottom:1px solid rgba(45,26,90,0.5);">
+            <div style="font-size:13px;color:var(--text-secondary);">Gut feel or podcast takes</div>
+          </div>
+          <div style="padding:12px 0 12px 16px;border-bottom:1px solid rgba(45,26,90,0.5);">
+            <div style="font-size:13px;color:var(--white);font-weight:600;">This season's data only</div>
+          </div>
+          <div style="padding:12px 0 12px;border-bottom:1px solid rgba(45,26,90,0.5);">
+            <div style="font-size:13px;color:var(--text-secondary);">No conditional intelligence</div>
+          </div>
+          <div style="padding:12px 0 12px 16px;border-bottom:1px solid rgba(45,26,90,0.5);">
+            <div style="font-size:13px;color:var(--white);font-weight:600;">Q1 → H1 → Q3 conditional matrices</div>
+          </div>
+          <div style="padding:12px 0 12px;border-bottom:1px solid rgba(45,26,90,0.5);">
+            <div style="font-size:13px;color:var(--text-secondary);">No context splits</div>
+          </div>
+          <div style="padding:12px 0 12px 16px;border-bottom:1px solid rgba(45,26,90,0.5);">
+            <div style="font-size:13px;color:var(--white);font-weight:600;">Home, Away, Last 10, vs Opponent</div>
+          </div>
+          <div style="padding:12px 0 12px;">
+            <div style="font-size:13px;color:var(--text-secondary);">No combo bet data</div>
+          </div>
+          <div style="padding:12px 0 12px 16px;">
+            <div style="font-size:13px;color:var(--white);font-weight:600;">PRA, Pts+Ast, Pts+Reb &amp; more</div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:14px 24px;background:rgba(46,204,122,0.05);border-top:1px solid rgba(46,204,122,0.15);font-size:12px;color:var(--green);font-family:'JetBrains Mono',monospace;letter-spacing:0.04em;">
+        ✓ This season's data · self-serve · updated every game day</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <a href="#" class="footer-logo">
+      <div class="nav-hex">IQ</div>
+      <div class="nav-wordmark">PropBet<span>IQ</span></div>
+    </a>
+    <div class="footer-copy">© 2026 PropBetIQ · NBA Playoffs Edition</div>
+    <div class="footer-links">
+      <a href="https://instagram.com/propiq" class="footer-link">Instagram</a>
+      <a href="https://twitter.com/propiq" class="footer-link">Twitter / X</a>
+      <a href="https://www.patreon.com/PropBetIQ" class="footer-link">Patreon</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

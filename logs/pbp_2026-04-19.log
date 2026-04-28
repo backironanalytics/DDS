@@ -1,0 +1,49 @@
+INFO [2026-04-19 08:46:06] === NBA PBP Pipeline START | Season 2026 | Workers 3 ===
+INFO [2026-04-19 08:46:06] Fetching schedule for season 2026...
+INFO [2026-04-19 08:46:07] Found 1245 completed games in schedule
+INFO [2026-04-19 08:46:07] 6 games to fetch | 1239 already cached
+INFO [2026-04-19 08:46:08] Starting parallel fetch for 6 games | 3 workers...
+INFO [2026-04-19 08:46:18] Fetch complete | success=6 | failed=0
+INFO [2026-04-19 08:46:21] === Pipeline DONE ===
+INFO [2026-04-19 09:38:35] === NBA PBP Pipeline START | Season 2026 | Workers 3 ===
+INFO [2026-04-19 09:38:35] Fetching schedule for season 2026...
+INFO [2026-04-19 09:38:36] Found 1245 completed games in schedule
+INFO [2026-04-19 09:38:36] 6 games to fetch | 1239 already cached
+INFO [2026-04-19 09:38:36] Starting parallel fetch for 6 games | 3 workers...
+INFO [2026-04-19 09:38:45] Fetch complete | success=6 | failed=0
+INFO [2026-04-19 09:38:48] === Pipeline DONE ===
+INFO [2026-04-19 10:11:40] === NBA PBP Pipeline START | Season 2026 | Workers 3 ===
+INFO [2026-04-19 10:11:40] Fetching schedule for season 2026...
+INFO [2026-04-19 10:11:41] Found 1245 completed games in schedule
+INFO [2026-04-19 10:11:41] 6 games to fetch | 1239 already cached
+INFO [2026-04-19 10:11:42] Starting parallel fetch for 6 games | 3 workers...
+INFO [2026-04-19 10:11:51] Fetch complete | success=6 | failed=0
+INFO [2026-04-19 10:11:53] === Pipeline DONE ===
+INFO [2026-04-19 12:01:00] === NBA PBP Pipeline START | Season 2026 | Workers 3 ===
+INFO [2026-04-19 12:01:00] Fetching schedule for season 2026...
+INFO [2026-04-19 12:01:02] Found 1245 completed games in schedule
+INFO [2026-04-19 12:01:02] 6 games to fetch | 1239 already cached
+INFO [2026-04-19 12:01:02] Starting parallel fetch for 6 games | 3 workers...
+INFO [2026-04-19 12:01:12] Fetch complete | success=6 | failed=0
+INFO [2026-04-19 12:01:15] === Pipeline DONE ===
+INFO [2026-04-19 13:07:21] === NBA PBP Pipeline START | Season 2026 | Workers 3 ===
+INFO [2026-04-19 13:07:21] Fetching schedule for season 2026...
+INFO [2026-04-19 13:07:22] Found 1245 completed games in schedule
+INFO [2026-04-19 13:07:22] 6 games to fetch | 1239 already cached
+INFO [2026-04-19 13:07:22] Starting parallel fetch for 6 games | 3 workers...
+INFO [2026-04-19 13:07:32] Fetch complete | success=6 | failed=0
+INFO [2026-04-19 13:07:33] === Pipeline DONE ===
+INFO [2026-04-19 16:38:30] === NBA PBP Pipeline START | Season 2026 | Workers 3 ===
+INFO [2026-04-19 16:38:30] Fetching schedule for season 2026...
+INFO [2026-04-19 16:38:31] Found 1245 completed games in schedule
+INFO [2026-04-19 16:38:32] 6 games to fetch | 1239 already cached
+INFO [2026-04-19 16:38:32] Starting parallel fetch for 6 games | 3 workers...
+INFO [2026-04-19 16:38:42] Fetch complete | success=6 | failed=0
+INFO [2026-04-19 16:38:43] === Pipeline DONE ===
+INFO [2026-04-19 17:16:40] === NBA PBP Pipeline START | Season 2026 | Workers 3 ===
+INFO [2026-04-19 17:16:40] Fetching schedule for season 2026...
+INFO [2026-04-19 17:16:42] Found 1245 completed games in schedule
+INFO [2026-04-19 17:16:42] 6 games to fetch | 1239 already cached
+INFO [2026-04-19 17:16:42] Starting parallel fetch for 6 games | 3 workers...
+INFO [2026-04-19 17:16:53] Fetch complete | success=6 | failed=0
+INFO [2026-04-19 17:16:57] === Pipeline DONE ===

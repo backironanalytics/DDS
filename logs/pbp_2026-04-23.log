@@ -1,0 +1,7 @@
+INFO [2026-04-23 23:37:33] === NBA PBP Pipeline START | Season 2026 | Workers 3 ===
+INFO [2026-04-23 23:37:33] Fetching schedule for season 2026...
+INFO [2026-04-23 23:37:34] Found 1257 completed games in schedule
+INFO [2026-04-23 23:37:34] 5 games to fetch | 1252 already cached
+INFO [2026-04-23 23:37:34] Starting parallel fetch for 5 games | 3 workers...
+INFO [2026-04-23 23:37:45] Fetch complete | success=5 | failed=0
+INFO [2026-04-23 23:37:50] === Pipeline DONE ===

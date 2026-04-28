@@ -1,0 +1,40 @@
+INFO [2026-04-16 17:26:40] === NBA PBP Pipeline START | Season 2026 | Workers 4 ===
+INFO [2026-04-16 17:26:41] Fetching schedule for season 2026...
+INFO [2026-04-16 17:26:43] Found 1239 completed games in schedule
+INFO [2026-04-16 17:26:43] 1164 games to fetch | 75 already cached
+INFO [2026-04-16 17:26:43] Starting parallel fetch for 1164 games | 4 workers...
+WARN [2026-04-16 17:37:05] Skipping game_id=401811051: object 'plays_df' not found
+WARN [2026-04-16 17:37:05] Skipping game_id=401810986: object 'plays_df' not found
+WARN [2026-04-16 17:39:59] Skipping game_id=401810747: object 'plays_df' not found
+INFO [2026-04-16 17:40:46] === NBA PBP Pipeline START | Season 2026 | Workers 4 ===
+INFO [2026-04-16 17:40:46] Fetching schedule for season 2026...
+INFO [2026-04-16 17:40:48] Found 1239 completed games in schedule
+INFO [2026-04-16 17:40:48] 882 games to fetch | 357 already cached
+INFO [2026-04-16 17:40:48] Starting parallel fetch for 882 games | 4 workers...
+WARN [2026-04-16 17:48:21] Skipping game_id=401811051: object 'plays_df' not found
+WARN [2026-04-16 17:48:21] Skipping game_id=401810986: object 'plays_df' not found
+WARN [2026-04-16 17:48:21] Skipping game_id=401810747: object 'plays_df' not found
+WARN [2026-04-16 17:49:52] Skipping game_id=401810559: object 'plays_df' not found
+WARN [2026-04-16 17:50:39] Skipping game_id=401810479: object 'plays_df' not found
+WARN [2026-04-16 17:50:44] Skipping game_id=401810469: empty response
+WARN [2026-04-16 17:53:13] Skipping game_id=401810239: object 'plays_df' not found
+WARN [2026-04-16 17:53:13] Skipping game_id=401810232: object 'plays_df' not found
+WARN [2026-04-16 17:54:30] Skipping game_id=401809812: object 'plays_df' not found
+WARN [2026-04-16 17:55:17] Skipping game_id=401810115: object 'plays_df' not found
+WARN [2026-04-16 17:55:37] Skipping game_id=401810084: object 'plays_df' not found
+WARN [2026-04-16 17:55:53] Skipping game_id=401810071: object 'plays_df' not found
+WARN [2026-04-16 17:55:56] Skipping game_id=401810067: object 'plays_df' not found
+WARN [2026-04-16 17:55:58] Skipping game_id=401810058: object 'plays_df' not found
+WARN [2026-04-16 17:56:05] Skipping game_id=401810055: object 'plays_df' not found
+WARN [2026-04-16 17:57:11] Skipping game_id=401809976: object 'plays_df' not found
+INFO [2026-04-16 17:57:32] Fetch complete | success=866 | failed=16
+WARN [2026-04-16 17:57:32] Failed game IDs: 401811051, 401810986, 401810747, 401810559, 401810479, 401810469, 401810239, 401810232, 401809812, 401810115, 401810084, 401810071, 401810067, 401810058, 401810055, 401809976
+INFO [2026-04-16 17:57:34] === Pipeline DONE ===
+INFO [2026-04-16 18:18:30] === NBA PBP Pipeline START | Season 2026 | Workers 3 ===
+INFO [2026-04-16 18:19:41] === NBA PBP Pipeline START | Season 2026 | Workers 3 ===
+INFO [2026-04-16 18:19:42] Fetching schedule for season 2026...
+INFO [2026-04-16 18:19:43] Found 1239 completed games in schedule
+INFO [2026-04-16 18:19:43] 20 games to fetch | 1219 already cached
+INFO [2026-04-16 18:19:43] Starting parallel fetch for 20 games | 3 workers...
+INFO [2026-04-16 18:20:20] Fetch complete | success=20 | failed=0
+INFO [2026-04-16 18:20:23] === Pipeline DONE ===

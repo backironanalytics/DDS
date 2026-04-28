@@ -1,0 +1,466 @@
+---
+title: "Prop IQ - Over Hit Rates" 
+output: 
+  flexdashboard::flex_dashboard:
+    theme: flatly
+    orientation: rows
+    vertical_layout: scroll
+
+
+---
+
+```{r setup, include=FALSE, echo = FALSE}
+
+
+
+color_set <- c("red2","#f7c844","#429460")
+
+
+
+```
+
+
+Points {data-navmenu="Stats" data-navmenu-icon="fa-signal"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+
+
+
+
+### Points
+
+
+```{r pts, echo = FALSE, warning = FALSE, message = FALSE}
+# ── Reusable table builder ─────────────────────────────────────────────────────
+build_metric_table <- function(pivoted_data, metric_label) {
+
+  fixed_cols <- c("Player", "urlThumbnailTeam", "Type", "metric", "n_games", "avg_min")
+  ou_cols    <- setdiff(names(pivoted_data), fixed_cols)
+  ou_cols    <- ou_cols[order(as.numeric(ou_cols))]
+
+  all_values <- unlist(pivoted_data[, ou_cols], use.names = FALSE)
+  data_min   <- min(all_values, na.rm = TRUE)
+  data_max   <- max(all_values, na.rm = TRUE)
+
+  color_fn <- scales::col_numeric(
+    palette = color_set,
+    domain  = c(data_min, data_max)
+  )
+
+  pct_col <- function() {
+    colDef(
+      align  = "center",
+      format = colFormat(suffix = "%"),
+      style  = function(value) {
+        if (is.na(value)) return(list())
+        bg        <- color_fn(value)
+        rgb_vals  <- grDevices::col2rgb(bg) / 255
+        luminance <- 0.299 * rgb_vals[1] + 0.587 * rgb_vals[2] + 0.114 * rgb_vals[3]
+        txt_color <- if (luminance > 0.5) "#111111" else "#ffffff"
+        list(
+          background   = bg,
+          color        = txt_color,
+          fontWeight   = "600",
+          borderRadius = "4px",
+          boxShadow    = "2px 2px 4px rgba(0,0,0,0.15)",
+          textAlign    = "center"
+        )
+      },
+      cell = function(value, index, name) {
+        if (is.na(value)) return("")
+        n         <- pivoted_data$n_games[index]
+        num       <- if (!is.na(n)) round(value * n) else "?"
+        pct_label <- scales::percent(value, accuracy = 1)
+        htmltools::span(
+          title = paste0(num, " / ", ifelse(is.na(n), "?", n), " games"),
+          style = "cursor: help; border-bottom: 1px dotted #999;",
+          pct_label
+        )
+      }
+    )  # ← closes colDef
+  }  # ← closes pct_col function
+
+  # ── SharedData must be created before col defs that reference it ─────────────
+  shared_data <- SharedData$new(pivoted_data)
+  ou_col_defs <- setNames(lapply(ou_cols, function(col) pct_col()), ou_cols)
+
+  # ── Fixed column defs ─────────────────────────────────────────────────────────
+  fixed_col_defs <- list(
+    Player = colDef(
+      sticky      = "left",
+      width       = 130,
+      align       = "left",
+      style       = list(fontWeight = "600"),
+      headerStyle = list(textAlign = "left")
+    ),
+    urlThumbnailTeam = colDef(
+      name      = "",
+      sticky    = "left",
+      width     = 40,
+      align     = "center",
+      cell      = embed_img(height = "25", width = "25"),
+      sortable  = FALSE
+    )
+  )
+
+  # ── Conditionally add optional columns ────────────────────────────────────────
+  if ("n_games" %in% names(pivoted_data)) {
+    fixed_col_defs$n_games <- colDef(
+      name        = "Games",
+      sticky      = "left",
+      width       = 70,
+      align       = "center",
+      headerStyle = list(textAlign = "center"),
+      style       = list(color = "#888", fontSize = "12px"),
+      format      = colFormat()
+    )
+  }
+
+  if ("avg_min" %in% names(pivoted_data)) {
+    fixed_col_defs$avg_min <- colDef(
+      name        = "Avg Min",
+      sticky      = "left",
+      width       = 75,
+      align       = "center",
+      headerStyle = list(textAlign = "center"),
+      style       = list(color = "#555", fontSize = "12px"),
+      format      = colFormat(digits = 1)
+    )
+  }
+
+  if ("Type" %in% names(pivoted_data)) {
+    fixed_col_defs$Type <- colDef(
+      name        = "Split",
+      sticky      = "left",
+      width       = 110,
+      align       = "center",
+      style       = list(fontWeight = "500", fontSize = "12px", color = "#444"),
+      headerStyle = list(textAlign = "center")
+    )
+  }
+
+  if ("metric" %in% names(pivoted_data)) {
+    fixed_col_defs$metric <- colDef(show = FALSE)
+  }
+
+  tbl <- reactable(
+    shared_data,
+    columns             = c(fixed_col_defs, ou_col_defs),
+    highlight           = TRUE,
+    striped             = TRUE,
+    searchable          = FALSE,
+    fullWidth           = TRUE,
+    defaultPageSize     = 10,
+    showPageSizeOptions = TRUE,
+    pageSizeOptions     = c(10, 15, 25, 50),
+    paginationType      = "jump",
+    showPageInfo        = TRUE,
+    theme               = fivethirtyeight(),
+    language            = reactableLang(
+      pageInfo     = "{rowStart}–{rowEnd} of {rows} players",
+      pagePrevious = "← Prev",
+      pageNext     = "Next →"
+    )
+  )
+
+  browsable(
+    tagList(
+      tags$div(
+        style = "display: flex; gap: 24px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap;",
+        tags$div(
+          style = "width: 250px;",
+          tags$label(
+            style = "font-family: sans-serif; font-size: 12px; font-weight: 600; color: #666; display: block; margin-bottom: 4px;",
+            "PLAYER"
+          ),
+          filter_select(
+            id         = paste0("player_filter_", tolower(gsub("[^a-z0-9]", "_", metric_label))),
+            label      = NULL,
+            sharedData = shared_data,
+            group      = ~Player,
+            multiple   = TRUE
+          )
+        ),
+        tags$div(
+          style = "width: 200px;",
+          tags$label(
+            style = "font-family: sans-serif; font-size: 12px; font-weight: 600; color: #666; display: block; margin-bottom: 4px;",
+            "SPLIT"
+          ),
+          filter_select(
+            id         = paste0("type_filter_", tolower(gsub("[^a-z0-9]", "_", metric_label))),
+            label      = NULL,
+            sharedData = shared_data,
+            group      = ~Type,
+            multiple   = TRUE
+          )
+        )
+      ),
+      tbl
+    )
+  )
+}
+
+# ── Call once per metric ───────────────────────────────────────────────────────
+build_metric_table(pt_pivoted, "Points")
+
+
+
+```
+
+
+Assists {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Assists
+
+```{r ast, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(ast_pivoted,  "Assists")
+```
+
+Rebounds {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Rebounds
+
+```{r reb, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(reb_pivoted,  "Rebounds")
+
+
+```
+
+
+Three Pointers Made {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Three Pointers Made
+
+```{r fg3m, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(fg3m_pivoted,  "Three Pointers Made")
+
+
+
+
+```
+
+Three Pointers Attempted {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Three Pointers Attempted
+
+```{r fg3a, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(fg3a_pivoted,  "Three Pointers Attempted")
+
+```
+
+Steals {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Steals
+
+```{r stl, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(stl_pivoted,  "Steals")
+
+```
+
+Blocks {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Blocks
+
+```{r blk, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(blk_pivoted,  "Blocks")
+
+```
+
+Turnovers {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Turnovers
+
+```{r tov, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(tov_pivoted,  "Turnovers")
+
+```
+
+
+Free Throws Made {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+### Free Throws Made
+
+```{r ftm, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(ftm_pivoted,  "Free Throws Made")
+
+```
+
+Field Goals Made {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Field Goals Made
+
+```{r fgm, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(fgm_pivoted,  "Field Goals Made")
+
+```
+
+Points + Rebounds + Assists {data-navmenu="Combo Bets" data-navmenu-icon="fa-solid fa-dice-d20"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+
+### Points + Rebounds + Assists
+
+
+```{r output, echo = FALSE, warning = FALSE, message = FALSE}
+build_metric_table(ptrebast_pivoted,  "Points + Rebounds + Assists")
+```
+
+Points + Assists {data-navmenu="Combo Bets"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+
+### Points + Assists
+
+
+```{r pt_ast, echo = FALSE, warning = FALSE, message = FALSE}
+build_metric_table(pt_ast_pivoted,  "Points + Assists")
+```
+
+
+Points + Rebounds {data-navmenu="Combo Bets"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+
+### Points + Rebounds
+
+
+```{r pt_reb, echo = FALSE, warning = FALSE, message = FALSE}
+build_metric_table(pt_reb_pivoted,  "Points + Rebounds")
+```
+
+Assists + Rebounds {data-navmenu="Combo Bets"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+
+### Assists + Rebounds
+
+
+```{r ast_reb, echo = FALSE, warning = FALSE, message = FALSE}
+build_metric_table(ast_reb_pivoted,  "Assists + Rebounds")
+```
+
+Steals + Blocks {data-navmenu="Combo Bets"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Steals + Blocks
+
+
+```{r stl_blk, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(stl_blk_pivoted,  "Steals + Blocks")
+```
+
+
+Points {data-navmenu="First Quarter Bets" data-navmenu-icon="fa-solid fa-dice-d20"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### First Quarter Points
+
+
+```{r firstqpts, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(firstqpoints_pivoted,  "First Quarter Points")
+
+```
+
+
+Assists {data-navmenu="First Quarter Bets" data-navmenu-icon="fa-solid fa-dice-d20"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### First Quarter Assists
+
+
+```{r firstqast, echo = FALSE, warning = FALSE, message = FALSE}
+
+
+build_metric_table(firstqassists_pivoted,  "First Quarter Assists")
+
+
+
+```
+
+
+Rebounds {data-navmenu="First Quarter Bets" data-navmenu-icon="fa-solid fa-dice-d20"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### First Quarter Rebounds
+
+
+```{r firstqreb, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(firstqrebounds_pivoted,  "First Quarter Rebounds")
+
+
+```

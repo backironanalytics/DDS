@@ -1,0 +1,1176 @@
+---
+title: "PropIQ — Threshold Analysis"
+output:
+  flexdashboard::flex_dashboard:
+    theme: bootstrap
+    orientation: rows
+    vertical_layout: scroll
+---
+
+```{css, echo=FALSE}
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root {
+  --purple-deep:    #0F0720;
+  --purple-dark:    #1C0F3A;
+  --purple-surface: #2A1650;
+  --purple-mid:     #534AB7;
+  --purple-muted:   #9B86C0;
+  --purple-border:  #2D1A5A;
+  --gold:           #F5A623;
+  --green:          #2ECC7A;
+  --red:            #E85252;
+  --white:          #FFFFFF;
+}
+
+html, body,
+.dashboard-page-wrapper, .dashboard-row,
+.chart-wrapper, .chart-stage,
+.chart-wrapper-flex, .chart-stage-flex,
+.tab-content, .tab-pane,
+.nav-tabs-custom > .tab-content {
+  background-color: #0F0720 !important;
+  background: #0F0720 !important;
+}
+
+body {
+  color: #FFFFFF !important;
+  font-family: 'Barlow', sans-serif !important;
+}
+
+/* Navbar */
+.navbar, .navbar-inverse {
+  background-color: rgba(15,7,32,0.95) !important;
+  border-color: #2D1A5A !important;
+}
+.navbar-inverse .navbar-brand, .navbar-brand {
+  color: #F5A623 !important;
+  font-weight: 800 !important;
+}
+.navbar-inverse .navbar-nav > li > a, .navbar-nav > li > a {
+  color: #9B86C0 !important;
+}
+.navbar-inverse .navbar-nav > li > a:hover { color: #FFFFFF !important; }
+.navbar-inverse .navbar-nav > .active > a {
+  background-color: rgba(83,74,183,0.3) !important;
+  color: #F5A623 !important;
+}
+.dropdown-menu {
+  background-color: #1C0F3A !important;
+  border-color: #2D1A5A !important;
+}
+.dropdown-menu > li > a { color: #9B86C0 !important; }
+.dropdown-menu > li > a:hover {
+  background-color: #534AB7 !important;
+  color: #FFFFFF !important;
+}
+
+/* Pills */
+.nav-pills > li > a {
+  background-color: #1C0F3A !important;
+  color: #9B86C0 !important;
+  border: 1px solid #2D1A5A !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  margin-right: 4px !important;
+}
+.nav-pills > li > a:hover {
+  background-color: #2A1650 !important;
+  color: #FFFFFF !important;
+  border-color: #534AB7 !important;
+}
+.nav-pills > li.active > a, .nav-pills > li.active > a:hover {
+  background-color: #534AB7 !important;
+  color: #FFFFFF !important;
+  border-color: #534AB7 !important;
+}
+
+/* Reactable structural — no cell color overrides */
+.rt-table { background-color: #0F0720 !important; }
+.rt-thead.-header { background-color: #1C0F3A !important; }
+.rt-th {
+  background-color: #1C0F3A !important;
+  color: #9B86C0 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  border-right: 1px solid #2D1A5A !important;
+}
+.rt-column-group-header {
+  background-color: #0F0720 !important;
+  border-bottom: 1px solid #2D1A5A !important;
+}
+.rt-tbody .rt-tr-group { border-bottom: 1px solid #2D1A5A !important; }
+
+/* Sticky cols */
+.rt-td-sticky-left {
+  background-color: #1C0F3A !important;
+  color: #FFFFFF !important;
+  border-right: 2px solid #2D1A5A !important;
+}
+.rt-th-sticky-left {
+  background-color: #1C0F3A !important;
+  color: #9B86C0 !important;
+  border-right: 2px solid #2D1A5A !important;
+}
+
+/* Non-colored body cells */
+.rt-tbody .rt-td:not([style*="background"]) {
+  background-color: #0F0720;
+  color: #FFFFFF;
+}
+.rt-tr-striped .rt-td:not([style*="background"]) {
+  background-color: #1C0F3A;
+  color: #FFFFFF;
+}
+.rt-tr-group:hover .rt-td:not([style*="background"]) {
+  background-color: #2A1650;
+  color: #FFFFFF;
+}
+.rt-tr-group:hover .rt-td-sticky-left {
+  background-color: #2A1650 !important;
+  color: #FFFFFF !important;
+}
+
+/* Pagination */
+.rt-pagination {
+  background-color: #1C0F3A !important;
+  color: #9B86C0 !important;
+  border-top: 1px solid #2D1A5A !important;
+}
+.rt-page-button {
+  background-color: #2A1650 !important;
+  color: #9B86C0 !important;
+  border: 1px solid #2D1A5A !important;
+  border-radius: 4px !important;
+}
+.rt-page-button:hover { background-color: #534AB7 !important; color: #FFFFFF !important; }
+.rt-page-button-current {
+  background-color: #F5A623 !important;
+  color: #0F0720 !important;
+  font-weight: 800 !important;
+}
+
+/* Crosstalk filters */
+.selectize-control .selectize-input {
+  background-color: #1C0F3A !important;
+  border: 1px solid #2D1A5A !important;
+  color: #FFFFFF !important;
+  border-radius: 6px !important;
+}
+.selectize-dropdown {
+  background-color: #1C0F3A !important;
+  border: 1px solid #2D1A5A !important;
+  color: #FFFFFF !important;
+}
+.selectize-dropdown .option:hover, .selectize-dropdown .option.active {
+  background-color: #534AB7 !important;
+  color: #FFFFFF !important;
+}
+label {
+  color: #9B86C0 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0F0720; }
+::-webkit-scrollbar-thumb { background: #2D1A5A; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #534AB7; }
+```
+
+```{r setup, include=FALSE, echo=FALSE}
+color_set <- c("red2", "#f7c844", "#429460")
+
+library(reactable)
+library(reactablefmtr)
+library(crosstalk)
+library(htmltools)
+library(scales)
+library(glue)
+
+propiq_theme <- reactableTheme(
+  color           = "#FFFFFF",
+  backgroundColor = "#0F0720",
+  borderColor     = "#2D1A5A",
+  stripedColor    = "#1C0F3A",
+  highlightColor  = "#2A1650",
+  cellPadding     = "8px 12px",
+  headerStyle = list(
+    background    = "#1C0F3A",
+    color         = "#9B86C0",
+    fontSize      = "11px",
+    fontWeight    = "600",
+    letterSpacing = "0.05em",
+    textTransform = "uppercase",
+    borderBottom  = "1px solid #2D1A5A"
+  ),
+  groupHeaderStyle = list(
+    background   = "#0F0720",
+    color        = "#9B86C0",
+    borderBottom = "1px solid #2D1A5A"
+  ),
+  paginationStyle = list(
+    background = "#1C0F3A",
+    color      = "#9B86C0",
+    borderTop  = "1px solid #2D1A5A"
+  ),
+  pageButtonStyle = list(
+    background   = "#2A1650",
+    color        = "#9B86C0",
+    border       = "1px solid #2D1A5A",
+    borderRadius = "4px"
+  ),
+  pageButtonHoverStyle  = list(background = "#534AB7", color = "#FFFFFF"),
+  pageButtonActiveStyle = list(background = "#F5A623", color = "#0F0720",
+                               fontWeight = "800")
+)
+```
+
+```{r functions, include=FALSE, echo=FALSE}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# build_threshold_table
+# Generic table builder for all threshold conditional tables
+# ══════════════════════════════════════════════════════════════════════════════
+
+prep_raw_for_threshold <- function(df, player_col, half_col) {
+  df |>
+    dplyr::rename(player = !!player_col) |>
+    dplyr::mutate(
+      threshold       = .data[[half_col]],
+      threshold_label = as.character(.data[[half_col]])
+    )
+}
+
+
+
+build_threshold_table <- function(data,
+                                   prefix,
+                                   stat_label,
+                                   group_header,
+                                   filter_id_base,
+                                   period_label) {
+
+  if (nrow(data) == 0) {
+    return(htmltools::p(
+      style = "color:#9B86C0;font-family:JetBrains Mono,monospace;
+               font-size:13px;padding:20px;",
+      "No data available for this period and stat."
+    ))
+  }
+
+  # ── Column identification ──────────────────────────────────────────────────
+  fixed_cols <- c("player", "threshold", "threshold_label", "n_games",
+                  "Type", "team", "team_logo")
+  ou_cols    <- names(data)[grepl(paste0("^", prefix), names(data))]
+  ou_cols    <- ou_cols[order(as.numeric(gsub(prefix, "", ou_cols)))]
+
+  if (length(ou_cols) == 0) return(htmltools::p("No OU columns found."))
+
+  # ── Color scale ────────────────────────────────────────────────────────────
+  all_values <- unlist(data[, ou_cols], use.names = FALSE)
+  all_values <- all_values[!is.na(all_values) & !is.nan(all_values)]
+  if (length(all_values) == 0) all_values <- c(0, 1)
+
+  data_min <- min(all_values, na.rm = TRUE)
+  data_max <- max(all_values, na.rm = TRUE)
+  if (data_min == data_max) { data_min <- data_min - 0.01; data_max <- data_max + 0.01 }
+
+  color_fn <- scales::col_numeric(palette = color_set, domain = c(data_min, data_max))
+
+  # ── OU column defs with color coding ──────────────────────────────────────
+  ou_col_defs <- setNames(
+    lapply(ou_cols, function(col) {
+      num     <- as.numeric(gsub(prefix, "", col))
+      ou_name <- paste0(num - 0.5)
+      colDef(
+        name   = ou_name,
+        align  = "center",
+        format = colFormat(suffix = "%"),
+        style  = function(value) {
+          if (is.na(value) || is.nan(value)) return(list())
+          bg        <- color_fn(value)
+          rgb_vals  <- grDevices::col2rgb(bg) / 255
+          luminance <- 0.299 * rgb_vals[1] + 0.587 * rgb_vals[2] + 0.114 * rgb_vals[3]
+          txt_color <- if (luminance > 0.5) "#111111" else "#ffffff"
+          list(background = bg, color = txt_color,
+               fontWeight = "600", borderRadius = "4px", textAlign = "center")
+        },
+        cell = function(value, index) {
+          if (is.na(value) || is.nan(value)) return("—")
+          n   <- data$n_games[index]
+          num_games <- if (!is.na(n)) round(value * n) else "?"
+          htmltools::span(
+            title = paste0(num_games, " / ", ifelse(is.na(n), "?", n), " games"),
+            style = "cursor:help;border-bottom:1px dotted rgba(255,255,255,0.4);",
+            scales::percent(value, accuracy = 1)
+          )
+        }
+      )
+    }),
+    ou_cols
+  )
+
+  col_groups <- list(
+    colGroup(
+      name        = group_header,
+      columns     = ou_cols,
+      headerStyle = list(
+        background   = "#2e6d9e",
+        color        = "#ffffff",
+        fontWeight   = "600",
+        fontSize     = "13px",
+        textAlign    = "center",
+        borderRadius = "4px"
+      )
+    )
+  )
+
+  # ── Ensure team columns exist ──────────────────────────────────────────────
+  if (!"team"      %in% names(data)) data$team      <- NA_character_
+  if (!"team_logo" %in% names(data)) data$team_logo <- NA_character_
+
+  # ── Reorder columns ────────────────────────────────────────────────────────
+  col_order <- c("player", "Type", "team_logo", "team",
+                 "threshold_label", "n_games",
+                 setdiff(names(data), c("player", "Type", "team_logo", "team",
+                                         "threshold", "threshold_label", "n_games")))
+  col_order <- col_order[col_order %in% names(data)]
+  data      <- data[, col_order]
+
+  # ── Fixed column defs ──────────────────────────────────────────────────────
+  fixed_col_defs <- list()
+
+  fixed_col_defs[["player"]] <- colDef(
+    name        = "Player",
+    sticky      = "left",
+    width       = 150,
+    align       = "left",
+    style       = list(fontWeight = "600", color = "#FFFFFF"),
+    headerStyle = list(textAlign = "left")
+  )
+
+  fixed_col_defs[["Type"]] <- colDef(
+    name        = "Split",
+    sticky      = "left",
+    width       = 130,
+    align       = "center",
+    style       = list(color = "#FFFFFF", fontSize = "12px"),
+    headerStyle = list(textAlign = "center")
+  )
+
+  fixed_col_defs[["team_logo"]] <- colDef(
+    name     = "",
+    sticky   = "left",
+    width    = 35,
+    align    = "center",
+    sortable = FALSE,
+    cell     = function(value) {
+      if (is.na(value) || nchar(as.character(value)) == 0) return("")
+      htmltools::img(src = value, height = "20px", width = "20px",
+                     style = "object-fit:contain;")
+    }
+  )
+
+  fixed_col_defs[["team"]] <- colDef(
+    show = FALSE
+  )
+
+  fixed_col_defs[["threshold_label"]] <- colDef(
+    name        = paste(period_label, stat_label, "≥"),
+    sticky      = "left",
+    width       = 90,
+    align       = "center",
+    style       = list(color = "#F5A623", fontWeight = "700", fontSize = "13px"),
+    headerStyle = list(textAlign = "center")
+  )
+
+  fixed_col_defs[["n_games"]] <- colDef(
+    name        = "Games",
+    sticky      = "left",
+    width       = 65,
+    align       = "center",
+    style       = list(color = "#FFFFFF", fontSize = "12px"),
+    headerStyle = list(textAlign = "center")
+  )
+
+  shared_data <- SharedData$new(data)
+
+  tbl <- reactable(
+    shared_data,
+    columns             = c(fixed_col_defs, ou_col_defs),
+    columnGroups        = col_groups,
+    highlight           = TRUE,
+    striped             = TRUE,
+    searchable          = FALSE,
+    fullWidth           = TRUE,
+    defaultPageSize     = 12,
+    showPageSizeOptions = TRUE,
+    pageSizeOptions     = c(12, 25, 50),
+    paginationType      = "jump",
+    showPageInfo        = TRUE,
+    defaultSorted       = list(threshold_label = "asc"),
+    theme               = propiq_theme,
+    language            = reactableLang(
+      pageInfo     = "{rowStart}–{rowEnd} of {rows} rows",
+      pagePrevious = "← Prev",
+      pageNext     = "Next →"
+    )
+  )
+
+  browsable(tagList(
+    tags$div(
+      style = "display:flex;gap:20px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;",
+
+      # Player filter
+      tags$div(style = "width:240px;",
+        tags$label(
+          style = "font-family:sans-serif;font-size:11px;font-weight:600;
+                   color:#9B86C0;display:block;margin-bottom:4px;letter-spacing:0.1em;",
+          "PLAYER"),
+        filter_select(paste0(filter_id_base, "_player"), NULL,
+                      shared_data, ~player, multiple = TRUE)
+      ),
+
+      # Split filter
+      tags$div(style = "width:200px;",
+        tags$label(
+          style = "font-family:sans-serif;font-size:11px;font-weight:600;
+                   color:#9B86C0;display:block;margin-bottom:4px;letter-spacing:0.1em;",
+          "SPLIT"),
+        filter_select(paste0(filter_id_base, "_type"), NULL,
+                      shared_data, ~Type, multiple = TRUE)
+      ),
+
+      # Team filter
+      tags$div(style = "width:160px;",
+        tags$label(
+          style = "font-family:sans-serif;font-size:11px;font-weight:600;
+                   color:#9B86C0;display:block;margin-bottom:4px;letter-spacing:0.1em;",
+          "TEAM"),
+        filter_select(paste0(filter_id_base, "_team"), NULL,
+                      shared_data, ~team, multiple = TRUE)
+      ),
+
+      # Threshold filter
+      tags$div(style = "width:160px;",
+        tags$label(
+          style = "font-family:sans-serif;font-size:11px;font-weight:600;
+                   color:#9B86C0;display:block;margin-bottom:4px;letter-spacing:0.1em;",
+          paste(period_label, stat_label, "THRESHOLD")),
+        filter_select(paste0(filter_id_base, "_thresh"), NULL,
+                      shared_data, ~threshold_label, multiple = TRUE)
+      )
+    ),
+
+    tags$p(
+      style = "font-family:JetBrains Mono,monospace;font-size:11px;
+               color:#6B4DA0;margin-bottom:12px;",
+      paste0("% of games where full game ", tolower(stat_label),
+             " hit each O/U line, when player scored ",
+             period_label, " ", tolower(stat_label),
+             " ≥ threshold. Hover % for fraction.")
+    ),
+
+    tbl
+  ))
+}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# build_edge_cards
+# Edge card visual for featured players
+# ══════════════════════════════════════════════════════════════════════════════
+
+build_edge_cards <- function(data, stat_type, period = "Q1",
+                              last_label = NULL) {
+
+  if (nrow(data) == 0) return(htmltools::p(
+    style = "color:#9B86C0;font-family:JetBrains Mono,monospace;font-size:13px;padding:20px;",
+    "No featured players available."
+  ))
+
+  if (is.null(last_label)) {
+    last_label <- paste0("L5 Avg ", period, " ",
+                         toupper(substr(stat_type, 1, 1)),
+                         substr(stat_type, 2, nchar(stat_type)))
+  }
+
+  prefix <- paste0("total_", stat_type, "_")
+
+  get_color <- function(pct) {
+    if (is.na(pct) || is.nan(pct)) return("#6B4DA0")
+    if (pct >= 0.65) return("#2ECC7A")
+    if (pct >= 0.50) return("#F5A623")
+    return("#E85252")
+  }
+
+  get_dynamic_lines <- function(avg_val, stat_type, period) {
+    avg_val <- round(avg_val)
+    if (stat_type == "pts") {
+      offsets <- switch(period,
+        "Q1" = list(start=5, step=2, n=6),
+        "H1" = list(start=3, step=2, n=5),
+        "Q3" = list(start=2, step=1, n=5))
+    } else if (stat_type == "ast") {
+      offsets <- switch(period,
+        "Q1" = list(start=2, step=1, n=5),
+        "H1" = list(start=1, step=1, n=4),
+        "Q3" = list(start=1, step=1, n=3))
+    } else {
+      offsets <- switch(period,
+        "Q1" = list(start=3, step=1, n=5),
+        "H1" = list(start=2, step=1, n=4),
+        "Q3" = list(start=1, step=1, n=3))
+    }
+    start <- avg_val + offsets$start
+    as.integer(seq(start, start + (offsets$step*(offsets$n-1)), by=offsets$step))
+  }
+
+  cards_html <- purrr::map_chr(seq_len(nrow(data)), function(i) {
+    row           <- data[i, ]
+    player_name   <- row$player
+    avg_val       <- as.numeric(row$avg_last5)
+    threshold     <- row$threshold_label
+    last_date     <- format(row$last_game_date, "%b %d")
+    n_games       <- row$n_games
+    team_abbrev   <- if ("team"      %in% names(row) && !is.na(row$team))      row$team      else ""
+    team_logo_url <- if ("team_logo" %in% names(row) && !is.na(row$team_logo)) as.character(row$team_logo) else NA_character_
+    headshot_url  <- if ("headshot_url" %in% names(row) && !is.na(row$headshot_url)) as.character(row$headshot_url) else NA_character_
+
+    # Avatar
+    avatar_html <- if (!is.na(headshot_url)) {
+      initials <- paste(substr(strsplit(player_name," ")[[1]],1,1),collapse="") |> substr(1,2)
+      glue::glue('
+        <img src="{headshot_url}"
+             style="width:56px;height:56px;border-radius:50%;object-fit:cover;
+                    flex-shrink:0;border:2px solid #2D1A5A;background:#2A1650;"
+             onerror="this.onerror=null;this.style.display=\'none\';
+                      this.nextElementSibling.style.display=\'flex\';" />
+        <div style="display:none;width:56px;height:56px;border-radius:50%;
+                    background:#534AB7;align-items:center;justify-content:center;
+                    font-family:Barlow Condensed,sans-serif;font-size:18px;
+                    font-weight:800;color:#FFFFFF;flex-shrink:0;">{initials}</div>')
+    } else {
+      initials <- paste(substr(strsplit(player_name," ")[[1]],1,1),collapse="") |> substr(1,2)
+      glue::glue('
+        <div style="width:56px;height:56px;border-radius:50%;background:#534AB7;
+                    display:flex;align-items:center;justify-content:center;
+                    font-family:Barlow Condensed,sans-serif;font-size:18px;
+                    font-weight:800;color:#FFFFFF;flex-shrink:0;">{initials}</div>')
+    }
+
+    # Team display
+    team_html <- if (!is.na(team_logo_url)) {
+      glue::glue('
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+          <img src="{team_logo_url}" style="width:16px;height:16px;object-fit:contain;"
+               onerror="this.style.display=\'none\'" />
+          <span style="font-size:11px;color:#F5A623;font-weight:700;
+                       font-family:JetBrains Mono,monospace;">{team_abbrev}</span>
+        </div>')
+    } else if (nchar(team_abbrev) > 0) {
+      glue::glue('<span style="font-size:11px;color:#F5A623;font-weight:700;
+                  font-family:JetBrains Mono,monospace;margin-top:4px;
+                  display:block;">{team_abbrev}</span>')
+    } else ""
+
+    # Prop lines
+    prop_lines <- get_dynamic_lines(avg_val, stat_type, period)
+
+    lines_html <- purrr::map_chr(prop_lines, function(line) {
+      col_name  <- paste0(prefix, line)
+      pct       <- if (col_name %in% names(row)) as.numeric(row[[col_name]]) else NA
+      if (!is.null(pct) && !is.na(pct) && is.nan(pct)) pct <- NA
+      color     <- get_color(pct)
+      bar_pct   <- if (!is.na(pct)) round(pct * 100) else 0
+      pct_label <- if (!is.na(pct)) paste0(round(pct * 100), "%") else "—"
+      ou_label  <- paste0("O ", line - 0.5, " ", stat_type)
+      n_num     <- if (!is.na(pct) && !is.na(n_games)) round(pct * as.numeric(n_games)) else "?"
+      tooltip   <- paste0(n_num, " / ", n_games, " games")
+
+      glue::glue('
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"
+             title="{tooltip}">
+          <div style="font-size:11px;color:#C4AEE8;width:80px;flex-shrink:0;">{ou_label}</div>
+          <div style="flex:1;height:6px;background:#2A1650;border-radius:3px;overflow:hidden;">
+            <div style="width:{bar_pct}%;height:100%;background:{color};border-radius:3px;"></div>
+          </div>
+          <div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:800;
+                      color:{color};width:36px;text-align:right;cursor:help;
+                      border-bottom:1px dotted rgba(255,255,255,0.3);">{pct_label}</div>
+        </div>')
+    }) |> paste(collapse = "")
+
+    glue::glue('
+      <div style="background:#1C0F3A;border:1px solid #2D1A5A;border-radius:14px;overflow:hidden;">
+        <div style="padding:14px 18px;border-bottom:1px solid #2D1A5A;
+                    display:flex;align-items:center;gap:12px;">
+          {avatar_html}
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:15px;font-weight:700;color:#FFFFFF;
+                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{player_name}</div>
+            <div style="font-size:11px;color:#9B86C0;margin-top:3px;">
+              {last_label}: <span style="color:#FFFFFF;font-weight:600;">{avg_val}</span>
+            </div>
+            {team_html}
+          </div>
+          <div style="background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.25);
+                      border-radius:6px;padding:4px 10px;font-family:JetBrains Mono,monospace;
+                      font-size:10px;font-weight:600;color:#F5A623;white-space:nowrap;
+                      flex-shrink:0;">{threshold}</div>
+        </div>
+        <div style="padding:14px 18px;">{lines_html}</div>
+      </div>')
+  })
+
+  all_cards <- paste(cards_html, collapse = "")
+
+  htmltools::HTML(glue::glue('
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <div style="background:#0F0720;padding:24px;border-radius:16px;">
+      <div style="font-family:JetBrains Mono,monospace;font-size:11px;font-weight:600;
+                  color:#F5A623;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:20px;">
+        ⚡ {toupper(stat_type)} Edge · {period} L5 Avg Threshold
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+        {all_cards}
+      </div>
+      <div style="margin-top:16px;font-size:11px;color:#6B4DA0;font-family:JetBrains Mono,monospace;">
+        🟢 65%+ strong edge · 🟡 50–64% borderline · 🔴 under 50% avoid · hover % for fraction
+      </div>
+    </div>'))
+}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# build_edge_explainer
+# How to read info button
+# ══════════════════════════════════════════════════════════════════════════════
+
+build_edge_explainer <- function(period, stat_type) {
+  period_label <- switch(period,
+    "Q1" = "first quarter", "H1" = "first half", "Q3" = "first three quarters")
+  stat_label <- switch(stat_type,
+    "pts" = "points", "ast" = "assists", "reb" = "rebounds")
+  button_id <- paste0("info_", period, "_", stat_type)
+
+  htmltools::HTML(glue::glue('
+    <div style="margin-bottom:16px;">
+      <button onclick="var el=document.getElementById(\'{button_id}\');
+                       el.style.display=el.style.display===\'none\'?\'block\':\'none\';"
+              style="background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);
+                     border-radius:8px;padding:8px 16px;color:#F5A623;
+                     font-family:JetBrains Mono,monospace;font-size:11px;font-weight:600;
+                     cursor:pointer;letter-spacing:0.05em;">
+        ℹ️ HOW TO READ THIS
+      </button>
+      <div id="{button_id}" style="display:none;margin-top:12px;background:#1C0F3A;
+           border:1px solid #2D1A5A;border-radius:12px;padding:16px 20px;
+           font-family:Barlow,sans-serif;font-size:13px;color:#C4AEE8;
+           line-height:1.7;max-width:680px;">
+        <div style="color:#F5A623;font-weight:700;font-size:14px;margin-bottom:10px;">
+          📊 {toupper(period)} {toupper(stat_label)} Edge Cards
+        </div>
+        <p style="margin:0 0 10px 0;">
+          Each card shows a featured player and their <strong style="color:#FFFFFF;">
+          last 5 game average {period_label} {stat_label}</strong>. This average becomes
+          the <strong style="color:#F5A623;">threshold</strong> — we find all games this
+          season where they scored <strong style="color:#FFFFFF;">at least that many
+          {stat_label}</strong> in the {period_label}, then show how often they hit
+          full game O/U lines in those qualifying games.
+        </p>
+        <p style="margin:0 0 10px 0;">
+          <strong style="color:#FFFFFF;">Example:</strong> If a player averages
+          4 {stat_label} in the {period_label} over their last 5 games, we find every
+          game where they had 4+ {stat_label} in the {period_label} and calculate
+          the hit rate for each full game line.
+        </p>
+        <p style="margin:0 0 6px 0;"><strong style="color:#FFFFFF;">Color guide:</strong></p>
+        <div style="display:flex;gap:16px;font-size:12px;">
+          <span><span style="color:#2ECC7A;">●</span> 65%+ Strong edge</span>
+          <span><span style="color:#F5A623;">●</span> 50–64% Borderline</span>
+          <span><span style="color:#E85252;">●</span> Under 50% Avoid</span>
+        </div>
+        <p style="margin:10px 0 0 0;font-size:11px;color:#6B4DA0;">
+          Hover any % to see the exact fraction. Sample includes Regular Season + Playoffs.
+        </p>
+      </div>
+    </div>'))
+}
+
+```
+
+
+Q1 Points {data-navmenu="Tonight's Edge"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Q1 Points
+
+```{r edge_q1pts, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_explainer("Q1", "pts")
+build_edge_cards(actionable_q1_pts_top, "pts", "Q1", "L5 Avg Q1 Pts")
+```
+
+
+Q1 Assists {data-navmenu="Tonight's Edge"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Q1 Assists
+
+```{r edge_q1ast, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_explainer("Q1", "ast")
+build_edge_cards(actionable_q1_ast_top, "ast", "Q1", "L5 Avg Q1 Ast")
+```
+
+
+Q1 Rebounds {data-navmenu="Tonight's Edge"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Q1 Rebounds
+
+```{r edge_q1reb, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_explainer("Q1", "reb")
+build_edge_cards(actionable_q1_reb_top, "reb", "Q1", "L5 Avg Q1 Reb")
+```
+
+
+H1 Points {data-navmenu="Tonight's Edge"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### H1 Points
+
+```{r edge_h1pts, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_explainer("H1", "pts")
+build_edge_cards(actionable_h1_pts_top, "pts", "H1", "L5 Avg H1 Pts")
+```
+
+
+H1 Assists {data-navmenu="Tonight's Edge"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### H1 Assists
+
+```{r edge_h1ast, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_explainer("H1", "ast")
+build_edge_cards(actionable_h1_ast_top, "ast", "H1", "L5 Avg H1 Ast")
+```
+
+
+H1 Rebounds {data-navmenu="Tonight's Edge"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### H1 Rebounds
+
+```{r edge_h1reb, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_explainer("H1", "reb")
+build_edge_cards(actionable_h1_reb_top, "reb", "H1", "L5 Avg H1 Reb")
+```
+
+
+Q3 Points {data-navmenu="Tonight's Edge"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Q3 Points
+
+```{r edge_q3pts, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_explainer("Q3", "pts")
+build_edge_cards(actionable_q3_pts_top, "pts", "Q3", "L5 Avg Q3 Pts")
+```
+
+
+Q3 Assists {data-navmenu="Tonight's Edge"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Q3 Assists
+
+```{r edge_q3ast, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_explainer("Q3", "ast")
+build_edge_cards(actionable_q3_ast_top, "ast", "Q3", "L5 Avg Q3 Ast")
+```
+
+
+Q3 Rebounds {data-navmenu="Tonight's Edge"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Q3 Rebounds
+
+```{r edge_q3reb, echo=FALSE, warning=FALSE, message=FALSE}
+build_edge_explainer("Q3", "reb")
+build_edge_cards(actionable_q3_reb_top, "reb", "Q3", "L5 Avg Q3 Reb")
+```
+
+
+Points {data-navmenu="Q1 Threshold"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Summary
+
+```{r q1pts_thresh, echo=FALSE, warning=FALSE, message=FALSE}
+build_threshold_table(
+  data           = q1_pts_threshold,
+  prefix         = "total_pts_",
+  stat_label     = "Pts",
+  group_header   = "Full Game Points — Over/Under",
+  filter_id_base = "q1pts_thresh",
+  period_label   = "Q1"
+)
+```
+
+### Raw Detail
+
+```{r q1pts_raw, echo=FALSE, warning=FALSE, message=FALSE}
+if (exists("pts_conditional") && nrow(pts_conditional) > 0) {
+  build_threshold_table(
+    data           = prep_raw_for_threshold(pts_conditional, "scorer", "fqpts"),
+    prefix         = "total_pts_",
+    stat_label     = "Pts",
+    group_header   = "Full Game Points — Over/Under",
+    filter_id_base = "q1pts_raw",
+    period_label   = "Q1"
+  )
+} else {
+  htmltools::p(style="color:#9B86C0;font-family:JetBrains Mono,monospace;padding:20px;",
+    "Raw detail not available.")
+}
+```
+
+
+Assists {data-navmenu="Q1 Threshold"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Summary
+
+```{r q1ast_thresh, echo=FALSE, warning=FALSE, message=FALSE}
+build_threshold_table(
+  data           = q1_ast_threshold,
+  prefix         = "total_ast_",
+  stat_label     = "Ast",
+  group_header   = "Full Game Assists — Over/Under",
+  filter_id_base = "q1ast_thresh",
+  period_label   = "Q1"
+)
+```
+
+### Raw Detail
+
+```{r q1ast_raw, echo=FALSE, warning=FALSE, message=FALSE}
+if (exists("ast_conditional")) {
+  build_threshold_table(
+    data           = prep_raw_for_threshold(ast_conditional, "assister", "fqast"),
+    prefix         = "total_ast_",
+    stat_label     = "Ast",
+    group_header   = "Full Game Assists — Over/Under",
+    filter_id_base = "q1ast_raw",
+    period_label   = "Q1"
+  )
+} else {
+  htmltools::p(style="color:#9B86C0;font-family:JetBrains Mono,monospace;padding:20px;",
+    "Raw detail not available.")
+}
+```
+
+
+Rebounds {data-navmenu="Q1 Threshold"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Summary
+
+```{r q1reb_thresh, echo=FALSE, warning=FALSE, message=FALSE}
+build_threshold_table(
+  data           = q1_reb_threshold,
+  prefix         = "total_reb_",
+  stat_label     = "Reb",
+  group_header   = "Full Game Rebounds — Over/Under",
+  filter_id_base = "q1reb_thresh",
+  period_label   = "Q1"
+)
+```
+
+### Raw Detail
+
+```{r q1reb_raw, echo=FALSE, warning=FALSE, message=FALSE}
+if (exists("reb_conditional")) {
+  build_threshold_table(
+    data           = prep_raw_for_threshold(reb_conditional, "rebounder", "fqreb"),
+    prefix         = "total_reb_",
+    stat_label     = "Reb",
+    group_header   = "Full Game Rebounds — Over/Under",
+    filter_id_base = "q1reb_raw",
+    period_label   = "Q1"
+  )
+} else {
+  htmltools::p(style="color:#9B86C0;font-family:JetBrains Mono,monospace;padding:20px;",
+    "Raw detail not available.")
+}
+```
+
+
+Points {data-navmenu="H1 Threshold"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Summary
+
+```{r h1pts_thresh, echo=FALSE, warning=FALSE, message=FALSE}
+build_threshold_table(
+  data           = h1_pts_threshold,
+  prefix         = "total_pts_",
+  stat_label     = "Pts",
+  group_header   = "Full Game Points — Over/Under",
+  filter_id_base = "h1pts_thresh",
+  period_label   = "H1"
+)
+```
+
+### Raw Detail
+
+```{r h1pts_raw, echo=FALSE, warning=FALSE, message=FALSE}
+if (exists("h1pts_conditional")) {
+  build_threshold_table(
+    data           = prep_raw_for_threshold(h1pts_conditional, "scorer", "h1pts"),
+    prefix         = "total_pts_",
+    stat_label     = "Pts",
+    group_header   = "Full Game Points — Over/Under",
+    filter_id_base = "h1pts_raw",
+    period_label   = "H1"
+  )
+} else {
+  htmltools::p(style="color:#9B86C0;font-family:JetBrains Mono,monospace;padding:20px;",
+    "Raw detail not available.")
+}
+```
+
+
+Assists {data-navmenu="H1 Threshold"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Summary
+
+```{r h1ast_thresh, echo=FALSE, warning=FALSE, message=FALSE}
+build_threshold_table(
+  data           = h1_ast_threshold,
+  prefix         = "total_ast_",
+  stat_label     = "Ast",
+  group_header   = "Full Game Assists — Over/Under",
+  filter_id_base = "h1ast_thresh",
+  period_label   = "H1"
+)
+```
+
+### Raw Detail
+
+```{r h1ast_raw, echo=FALSE, warning=FALSE, message=FALSE}
+if (exists("h1ast_conditional")) {
+  build_threshold_table(
+    data           = prep_raw_for_threshold(h1ast_conditional, "assister", "h1ast"),
+    prefix         = "total_ast_",
+    stat_label     = "Ast",
+    group_header   = "Full Game Assists — Over/Under",
+    filter_id_base = "h1ast_raw",
+    period_label   = "H1"
+  )
+} else {
+  htmltools::p(style="color:#9B86C0;font-family:JetBrains Mono,monospace;padding:20px;",
+    "Raw detail not available.")
+}
+```
+
+
+Rebounds {data-navmenu="H1 Threshold"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Summary
+
+```{r h1reb_thresh, echo=FALSE, warning=FALSE, message=FALSE}
+build_threshold_table(
+  data           = h1_reb_threshold,
+  prefix         = "total_reb_",
+  stat_label     = "Reb",
+  group_header   = "Full Game Rebounds — Over/Under",
+  filter_id_base = "h1reb_thresh",
+  period_label   = "H1"
+)
+```
+
+### Raw Detail
+
+```{r h1reb_raw, echo=FALSE, warning=FALSE, message=FALSE}
+if (exists("h1reb_conditional")) {
+  build_threshold_table(
+    data           = prep_raw_for_threshold(h1reb_conditional, "rebounder", "h1reb"),
+    prefix         = "total_reb_",
+    stat_label     = "Reb",
+    group_header   = "Full Game Rebounds — Over/Under",
+    filter_id_base = "h1reb_raw",
+    period_label   = "H1"
+  )
+} else {
+  htmltools::p(style="color:#9B86C0;font-family:JetBrains Mono,monospace;padding:20px;",
+    "Raw detail not available.")
+}
+```
+
+
+Points {data-navmenu="Q3 Threshold"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Summary
+
+```{r q3pts_thresh, echo=FALSE, warning=FALSE, message=FALSE}
+build_threshold_table(
+  data           = q3_pts_threshold,
+  prefix         = "total_pts_",
+  stat_label     = "Pts",
+  group_header   = "Full Game Points — Over/Under",
+  filter_id_base = "q3pts_thresh",
+  period_label   = "Q3"
+)
+```
+
+### Raw Detail
+
+```{r q3pts_raw, echo=FALSE, warning=FALSE, message=FALSE}
+if (exists("q3pts_conditional")) {
+  build_threshold_table(
+    data           = prep_raw_for_threshold(q3pts_conditional, "scorer", "q3pts"),
+    prefix         = "total_pts_",
+    stat_label     = "Pts",
+    group_header   = "Full Game Points — Over/Under",
+    filter_id_base = "q3pts_raw",
+    period_label   = "Q3"
+  )
+} else {
+  htmltools::p(style="color:#9B86C0;font-family:JetBrains Mono,monospace;padding:20px;",
+    "Raw detail not available.")
+}
+```
+
+
+Assists {data-navmenu="Q3 Threshold"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Summary
+
+```{r q3ast_thresh, echo=FALSE, warning=FALSE, message=FALSE}
+build_threshold_table(
+  data           = q3_ast_threshold,
+  prefix         = "total_ast_",
+  stat_label     = "Ast",
+  group_header   = "Full Game Assists — Over/Under",
+  filter_id_base = "q3ast_thresh",
+  period_label   = "Q3"
+)
+```
+
+### Raw Detail
+
+```{r q3ast_raw, echo=FALSE, warning=FALSE, message=FALSE}
+if (exists("q3ast_conditional")) {
+  build_threshold_table(
+    data           = prep_raw_for_threshold(q3ast_conditional, "assister", "q3ast"),
+    prefix         = "total_ast_",
+    stat_label     = "Ast",
+    group_header   = "Full Game Assists — Over/Under",
+    filter_id_base = "q3ast_raw",
+    period_label   = "Q3"
+  )
+} else {
+  htmltools::p(style="color:#9B86C0;font-family:JetBrains Mono,monospace;padding:20px;",
+    "Raw detail not available.")
+}
+```
+
+
+Rebounds {data-navmenu="Q3 Threshold"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Summary
+
+```{r q3reb_thresh, echo=FALSE, warning=FALSE, message=FALSE}
+build_threshold_table(
+  data           = q3_reb_threshold,
+  prefix         = "total_reb_",
+  stat_label     = "Reb",
+  group_header   = "Full Game Rebounds — Over/Under",
+  filter_id_base = "q3reb_thresh",
+  period_label   = "Q3"
+)
+```
+
+### Raw Detail
+
+```{r q3reb_raw, echo=FALSE, warning=FALSE, message=FALSE}
+if (exists("q3reb_conditional")) {
+  build_threshold_table(
+    data           = prep_raw_for_threshold(q3reb_conditional, "rebounder", "q3reb"),
+    prefix         = "total_reb_",
+    stat_label     = "Reb",
+    group_header   = "Full Game Rebounds — Over/Under",
+    filter_id_base = "q3reb_raw",
+    period_label   = "Q3"
+  )
+} else {
+  htmltools::p(style="color:#9B86C0;font-family:JetBrains Mono,monospace;padding:20px;",
+    "Raw detail not available.")
+}
+```

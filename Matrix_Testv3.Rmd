@@ -1,0 +1,1256 @@
+---
+title: "Dollar Data Science - Over Hit Rates" 
+output: 
+  flexdashboard::flex_dashboard:
+    theme: flatly
+    orientation: rows
+    vertical_layout: scroll
+
+
+---
+
+```{r setup, include=FALSE, echo = FALSE}
+
+
+
+color_set <- c("red2","#f7c844","#429460")
+
+
+
+```
+
+
+Points {data-navmenu="Stats" data-navmenu-icon="fa-signal"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+
+
+
+
+### Points
+
+
+```{r pts, echo = FALSE, warning = FALSE, message = FALSE}
+# ── Reusable table builder ─────────────────────────────────────────────────────
+build_metric_table <- function(pivoted_data, metric_label) {
+
+  fixed_cols <- c("Player", "urlThumbnailTeam", "Type", "metric", "n_games", "avg_min")
+  ou_cols    <- setdiff(names(pivoted_data), fixed_cols)
+  ou_cols    <- ou_cols[order(as.numeric(ou_cols))]
+
+  all_values <- unlist(pivoted_data[, ou_cols], use.names = FALSE)
+  data_min   <- min(all_values, na.rm = TRUE)
+  data_max   <- max(all_values, na.rm = TRUE)
+
+  color_fn <- scales::col_numeric(
+    palette = color_set,
+    domain  = c(data_min, data_max)
+  )
+
+  pct_col <- function() {
+    colDef(
+      align  = "center",
+      format = colFormat(suffix = "%"),
+      style  = function(value) {
+        if (is.na(value)) return(list())
+        bg        <- color_fn(value)
+        rgb_vals  <- grDevices::col2rgb(bg) / 255
+        luminance <- 0.299 * rgb_vals[1] + 0.587 * rgb_vals[2] + 0.114 * rgb_vals[3]
+        txt_color <- if (luminance > 0.5) "#111111" else "#ffffff"
+        list(
+          background   = bg,
+          color        = txt_color,
+          fontWeight   = "600",
+          borderRadius = "4px",
+          boxShadow    = "2px 2px 4px rgba(0,0,0,0.15)",
+          textAlign    = "center"
+        )
+      },
+      cell = function(value, index, name) {
+        if (is.na(value)) return("")
+        n         <- pivoted_data$n_games[index]
+        num       <- if (!is.na(n)) round(value * n) else "?"
+        pct_label <- scales::percent(value, accuracy = 1)
+        htmltools::span(
+          title = paste0(num, " / ", ifelse(is.na(n), "?", n), " games"),
+          style = "cursor: help; border-bottom: 1px dotted #999;",
+          pct_label
+        )
+      }
+    )  # ← closes colDef
+  }  # ← closes pct_col function
+
+  # ── SharedData must be created before col defs that reference it ─────────────
+  shared_data <- SharedData$new(pivoted_data)
+  ou_col_defs <- setNames(lapply(ou_cols, function(col) pct_col()), ou_cols)
+
+  # ── Fixed column defs ─────────────────────────────────────────────────────────
+  fixed_col_defs <- list(
+    Player = colDef(
+      sticky      = "left",
+      width       = 130,
+      align       = "left",
+      style       = list(fontWeight = "600"),
+      headerStyle = list(textAlign = "left")
+    ),
+    urlThumbnailTeam = colDef(
+      name      = "",
+      sticky    = "left",
+      width     = 40,
+      align     = "center",
+      cell      = embed_img(height = "25", width = "25"),
+      sortable  = FALSE
+    )
+  )
+
+  # ── Conditionally add optional columns ────────────────────────────────────────
+  if ("n_games" %in% names(pivoted_data)) {
+    fixed_col_defs$n_games <- colDef(
+      name        = "Games",
+      sticky      = "left",
+      width       = 70,
+      align       = "center",
+      headerStyle = list(textAlign = "center"),
+      style       = list(color = "#888", fontSize = "12px"),
+      format      = colFormat()
+    )
+  }
+
+  if ("avg_min" %in% names(pivoted_data)) {
+    fixed_col_defs$avg_min <- colDef(
+      name        = "Avg Min",
+      sticky      = "left",
+      width       = 75,
+      align       = "center",
+      headerStyle = list(textAlign = "center"),
+      style       = list(color = "#555", fontSize = "12px"),
+      format      = colFormat(digits = 1)
+    )
+  }
+
+  if ("Type" %in% names(pivoted_data)) {
+    fixed_col_defs$Type <- colDef(
+      name        = "Split",
+      sticky      = "left",
+      width       = 110,
+      align       = "center",
+      style       = list(fontWeight = "500", fontSize = "12px", color = "#444"),
+      headerStyle = list(textAlign = "center")
+    )
+  }
+
+  if ("metric" %in% names(pivoted_data)) {
+    fixed_col_defs$metric <- colDef(show = FALSE)
+  }
+
+  tbl <- reactable(
+    shared_data,
+    columns             = c(fixed_col_defs, ou_col_defs),
+    highlight           = TRUE,
+    striped             = TRUE,
+    searchable          = FALSE,
+    fullWidth           = TRUE,
+    defaultPageSize     = 10,
+    showPageSizeOptions = TRUE,
+    pageSizeOptions     = c(10, 15, 25, 50),
+    paginationType      = "jump",
+    showPageInfo        = TRUE,
+    theme               = fivethirtyeight(),
+    language            = reactableLang(
+      pageInfo     = "{rowStart}–{rowEnd} of {rows} players",
+      pagePrevious = "← Prev",
+      pageNext     = "Next →"
+    )
+  )
+
+  browsable(
+    tagList(
+      tags$div(
+        style = "display: flex; gap: 24px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap;",
+        tags$div(
+          style = "width: 250px;",
+          tags$label(
+            style = "font-family: sans-serif; font-size: 12px; font-weight: 600; color: #666; display: block; margin-bottom: 4px;",
+            "PLAYER"
+          ),
+          filter_select(
+            id         = paste0("player_filter_", tolower(gsub("[^a-z0-9]", "_", metric_label))),
+            label      = NULL,
+            sharedData = shared_data,
+            group      = ~Player,
+            multiple   = TRUE
+          )
+        ),
+        tags$div(
+          style = "width: 200px;",
+          tags$label(
+            style = "font-family: sans-serif; font-size: 12px; font-weight: 600; color: #666; display: block; margin-bottom: 4px;",
+            "SPLIT"
+          ),
+          filter_select(
+            id         = paste0("type_filter_", tolower(gsub("[^a-z0-9]", "_", metric_label))),
+            label      = NULL,
+            sharedData = shared_data,
+            group      = ~Type,
+            multiple   = TRUE
+          )
+        )
+      ),
+      tbl
+    )
+  )
+}
+
+# ── Call once per metric ───────────────────────────────────────────────────────
+build_metric_table(pt_pivoted, "Points")
+
+
+
+```
+
+
+Assists {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Assists
+
+```{r ast, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(ast_pivoted,  "Assists")
+```
+
+Rebounds {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Rebounds
+
+```{r reb, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(reb_pivoted,  "Rebounds")
+
+
+```
+
+
+Three Pointers Made {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Three Pointers Made
+
+```{r fg3m, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(fg3m_pivoted,  "Three Pointers Made")
+
+
+
+
+```
+
+Three Pointers Attempted {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Three Pointers Attempted
+
+```{r fg3a, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(fg3a_pivoted,  "Three Pointers Attempted")
+
+```
+
+Steals {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Steals
+
+```{r stl, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(stl_pivoted,  "Steals")
+
+```
+
+Blocks {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Blocks
+
+```{r blk, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(blk_pivoted,  "Blocks")
+
+```
+
+Turnovers {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Turnovers
+
+```{r tov, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(tov_pivoted,  "Turnovers")
+
+```
+
+
+Free Throws Made {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+### Free Throws Made
+
+```{r ftm, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(ftm_pivoted,  "Free Throws Made")
+
+```
+
+Field Goals Made {data-navmenu="Stats"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Field Goals Made
+
+```{r fgm, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(fgm_pivoted,  "Field Goals Made")
+
+```
+
+Points + Rebounds + Assists {data-navmenu="Combo Bets" data-navmenu-icon="fa-solid fa-dice-d20"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+
+### Points + Rebounds + Assists
+
+
+```{r output, echo = FALSE, warning = FALSE, message = FALSE}
+build_metric_table(ptrebast_pivoted,  "Points + Rebounds + Assists")
+```
+
+Points + Assists {data-navmenu="Combo Bets"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+
+### Points + Assists
+
+
+```{r pt_ast, echo = FALSE, warning = FALSE, message = FALSE}
+build_metric_table(pt_ast_pivoted,  "Points + Assists")
+```
+
+
+Points + Rebounds {data-navmenu="Combo Bets"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+
+### Points + Rebounds
+
+
+```{r pt_reb, echo = FALSE, warning = FALSE, message = FALSE}
+build_metric_table(pt_reb_pivoted,  "Points + Rebounds")
+```
+
+Assists + Rebounds {data-navmenu="Combo Bets"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+
+### Assists + Rebounds
+
+
+```{r ast_reb, echo = FALSE, warning = FALSE, message = FALSE}
+build_metric_table(ast_reb_pivoted,  "Assists + Rebounds")
+```
+
+Steals + Blocks {data-navmenu="Combo Bets"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### Steals + Blocks
+
+
+```{r stl_blk, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(stl_blk_pivoted,  "Steals + Blocks")
+```
+
+
+Points {data-navmenu="First Quarter Bets" data-navmenu-icon="fa-solid fa-dice-d20"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### First Quarter Points
+
+
+```{r firstqpts, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(firstqpoints_pivoted,  "First Quarter Points")
+
+```
+
+
+Assists {data-navmenu="First Quarter Bets" data-navmenu-icon="fa-solid fa-dice-d20"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### First Quarter Assists
+
+
+```{r firstqast, echo = FALSE, warning = FALSE, message = FALSE}
+
+
+build_metric_table(firstqassists_pivoted,  "First Quarter Assists")
+
+
+
+```
+
+
+Rebounds {data-navmenu="First Quarter Bets" data-navmenu-icon="fa-solid fa-dice-d20"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+### First Quarter Rebounds
+
+
+```{r firstqreb, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_metric_table(firstqrebounds_pivoted,  "First Quarter Rebounds")
+
+
+```
+
+
+Points {data-navmenu="Q1 to Full Game" data-navmenu-icon="fa-solid fa-dice-d20"}
+=======================================================================
+
+
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+
+
+
+### Points
+
+
+```{r firstqpts_fullgame_bucket, echo = FALSE, warning = FALSE, message = FALSE}
+
+
+build_conditional_table <- function(
+  data           = pts_conditional_bucketed,
+  player_col     = "scorer",
+  half_col       = "fqpts",
+  prefix         = "total_pts_",
+  half_label     = "Q1 Pts",
+  group_header   = "Full Game Points — Over/Under",
+  filter_id_base = "q1pts_bucket",
+  desc_text      = "Rows show bucketed Q1 point totals. Percentages are weighted averages across all games in each bucket."
+) {
+
+  fixed_cols <- c(player_col, half_col, "n_games", "Type")
+  remaining_cols <- setdiff(names(data), c(player_col, "Type", half_col, "n_games"))
+  ou_cols        <- remaining_cols[order(as.numeric(gsub(prefix, "", remaining_cols)))]
+
+  all_values <- unlist(data[, ou_cols], use.names = FALSE)
+  data_min   <- min(all_values, na.rm = TRUE)
+  data_max   <- max(all_values, na.rm = TRUE)
+
+  color_fn <- scales::col_numeric(
+    palette = color_set,
+    domain  = c(data_min, data_max)
+  )
+
+  ou_col_defs <- setNames(
+    lapply(ou_cols, function(col) {
+      num     <- as.numeric(gsub(prefix, "", col))
+      ou_name <- paste0(num - 0.5)
+      colDef(
+        name   = ou_name,
+        align  = "center",
+        format = colFormat(suffix = "%"),
+        style  = function(value) {
+          if (is.na(value)) return(list())
+          bg        <- color_fn(value)
+          rgb_vals  <- grDevices::col2rgb(bg) / 255
+          luminance <- 0.299 * rgb_vals[1] + 0.587 * rgb_vals[2] + 0.114 * rgb_vals[3]
+          txt_color <- if (luminance > 0.5) "#111111" else "#ffffff"
+          list(background = bg, color = txt_color,
+               fontWeight = "600", borderRadius = "4px", textAlign = "center")
+        },
+        cell = function(value) {
+          if (is.na(value)) return("")
+          scales::percent(value, accuracy = 1)
+        }
+      )
+    }),
+    ou_cols
+  )
+
+  col_groups <- list(
+    colGroup(
+      name        = group_header,
+      columns     = ou_cols,
+      headerStyle = list(
+        background   = "#2e6d9e",
+        color        = "#ffffff",
+        fontWeight   = "600",
+        fontSize     = "13px",
+        textAlign    = "center",
+        borderRadius = "4px"
+      )
+    )
+  )
+
+  # Build fixed column defs dynamically using the column name parameters
+  fixed_col_defs <- list(
+    colDef(
+      name        = "Player",
+      sticky      = "left",
+      width       = 150,
+      align       = "left",
+      style       = list(fontWeight = "600"),
+      headerStyle = list(textAlign = "left")
+    ),
+    colDef(
+      name        = "Split",
+      sticky      = "left",
+      width       = 130,
+      align       = "center",
+      style       = list(fontSize = "12px", color = "#444"),
+      headerStyle = list(textAlign = "center")
+    ),
+    colDef(
+      name        = half_label,
+      sticky      = "left",
+      width       = 80,
+      align       = "center",
+      headerStyle = list(textAlign = "center")
+    ),
+    colDef(
+      name        = "Games",
+      sticky      = "left",
+      width       = 70,
+      align       = "center",
+      headerStyle = list(textAlign = "center"),
+      style       = list(color = "#888", fontSize = "12px")
+    )
+  )
+  names(fixed_col_defs) <- c(player_col, "Type", half_col, "n_games")
+  
+  
+data <- data |>
+  dplyr::select(
+    all_of(player_col),
+    Type,
+    all_of(half_col),
+    n_games,
+    all_of(remaining_cols)
+  )
+
+  shared_data <- SharedData$new(data)
+
+  # Build filter group formulas dynamically
+  player_formula <- as.formula(paste0("~", player_col))
+  half_formula   <- as.formula(paste0("~", half_col))
+
+  tbl <- reactable(
+    shared_data,
+    columns             = c(fixed_col_defs, ou_col_defs),
+    columnGroups        = col_groups,
+    highlight           = TRUE,
+    striped             = TRUE,
+    searchable          = FALSE,
+    fullWidth           = TRUE,
+    defaultPageSize     = 15,
+    showPageSizeOptions = TRUE,
+    pageSizeOptions     = c(15, 25, 50),
+    paginationType      = "jump",
+    showPageInfo        = TRUE,
+    defaultSorted       = setNames(list("asc"), half_col),
+    theme               = fivethirtyeight(),
+    language            = reactableLang(
+      pageInfo     = "{rowStart}-{rowEnd} of {rows} rows",
+      pagePrevious = "← Prev",
+      pageNext     = "Next →"
+    )
+  )
+
+  browsable(
+    tagList(
+      tags$div(
+        style = "display: flex; gap: 24px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap;",
+        tags$div(
+          style = "width: 250px;",
+          tags$label(
+            style = "font-family: sans-serif; font-size: 12px; font-weight: 600; color: #666; display: block; margin-bottom: 4px;",
+            "PLAYER"
+          ),
+          filter_select(
+            id         = paste0(filter_id_base, "_player"),
+            label      = NULL,
+            sharedData = shared_data,
+            group      = player_formula,
+            multiple   = TRUE
+          )
+        ),
+        tags$div(
+          style = "width: 200px;",
+          tags$label(
+            style = "font-family: sans-serif; font-size: 12px; font-weight: 600; color: #666; display: block; margin-bottom: 4px;",
+            toupper(half_label)
+          ),
+          filter_select(
+            id         = paste0(filter_id_base, "_half"),
+            label      = NULL,
+            sharedData = shared_data,
+            group      = half_formula,
+            multiple   = TRUE
+          )
+        ),
+        tags$div(
+          style = "width: 200px;",
+          tags$label(
+            style = "font-family: sans-serif; font-size: 12px; font-weight: 600; color: #666; display: block; margin-bottom: 4px;",
+            "SPLIT"
+          ),
+          filter_select(
+            id         = paste0(filter_id_base, "_type"),
+            label      = NULL,
+            sharedData = shared_data,
+            group      = ~Type,
+            multiple   = TRUE
+          )
+        )
+      ),
+      tags$p(
+        style = "font-family: sans-serif; font-size: 12px; color: #888; margin-bottom: 8px;",
+        desc_text
+      ),
+      tbl
+    )
+  )
+}
+
+
+# ── Bucketed summary table ─────────────────────────────────────────────────────
+build_conditional_table(
+  data           = pts_conditional_bucketed,
+  player_col     = "scorer",
+  half_col       = "fqpts",
+  prefix         = "total_pts_",
+  half_label     = "Q1 Pts",
+  group_header   = "Full Game Points — Over/Under",
+  filter_id_base = "q1pts_bucket",
+  desc_text      = "Rows show bucketed Q1 point totals. Percentages are weighted averages across all games in each bucket."
+)
+
+
+```
+
+### Raw Detail
+
+```{r q1pts_raw, echo=FALSE, warning=FALSE, message=FALSE}
+build_conditional_table(
+  data           = pts_conditional,
+  player_col     = "scorer",
+  half_col       = "fqpts",
+  prefix         = "total_pts_",
+  half_label     = "Q1 Pts",
+  group_header   = "Full Game Points — Over/Under",
+  filter_id_base = "q1pts_raw",
+  desc_text      = "Raw data — each row is an exact Q1 point total."
+)
+```
+
+
+
+
+Assists {data-navmenu="Q1 to Full Game"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+
+### Assists
+
+
+```{r firstqast_fullgame, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_conditional_table(
+  data           = ast_conditional_bucketed,
+  player_col     = "assister",
+  half_col       = "fqast",
+  prefix         = "total_ast_",
+  half_label     = "Q1 Ast",
+  group_header   = "Full Game Assists — Over/Under",
+  filter_id_base = "q1ast_bucket",
+  desc_text      = "Rows show bucketed Q1 assist totals. Percentages are weighted averages across all games in each bucket."
+)
+
+```
+
+### Raw Detail
+
+```{r q1ast_raw, echo=FALSE, warning=FALSE, message=FALSE}
+build_conditional_table(
+  data           = ast_conditional,
+  player_col     = "assister",
+  half_col       = "fqast",
+  prefix         = "total_ast_",
+  half_label     = "Q1 Ast",
+  group_header   = "Full Game Assists — Over/Under",
+  filter_id_base = "q1ast_raw",
+  desc_text      = "Raw data — each row is an exact Q1 assist total."
+)
+```
+
+
+
+Rebounds {data-navmenu="Q1 to Full Game"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+
+
+### Rebounds
+
+
+```{r firstqreb_fullgame, echo = FALSE, warning = FALSE, message = FALSE}
+
+build_conditional_table(
+  data           = reb_conditional_bucketed,
+  player_col     = "rebounder",
+  half_col       = "fqreb",
+  prefix         = "total_reb_",
+  half_label     = "Q1 Reb",
+  group_header   = "Full Game Rebounds — Over/Under",
+  filter_id_base = "q1reb_bucket",
+  desc_text      = "Rows show bucketed Q1 rebound totals. Percentages are weighted averages across all games in each bucket."
+)
+
+
+```
+
+### Raw Detail
+
+```{r q1reb_raw, echo=FALSE, warning=FALSE, message=FALSE}
+build_conditional_table(
+  data           = reb_conditional,
+  player_col     = "rebounder",
+  half_col       = "fqreb",
+  prefix         = "total_reb_",
+  half_label     = "Q1 Reb",
+  group_header   = "Full Game Rebounds — Over/Under",
+  filter_id_base = "q1reb_raw",
+  desc_text      = "Raw data — each row is an exact Q1 rebound total."
+)
+```
+
+
+
+
+
+Points {data-navmenu="H1 to Full Game" data-navmenu-icon="fa-solid fa-dice-d20"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Points
+
+```{r h1pts_bucket, echo=FALSE, warning=FALSE, message=FALSE}
+build_conditional_table(
+  data           = h1pts_conditional_bucketed,
+  player_col     = "scorer",
+  half_col       = "h1pts",
+  prefix         = "total_pts_",
+  half_label     = "H1 Pts",
+  group_header   = "Full Game Points — Over/Under",
+  filter_id_base = "h1pts_bucket",
+  desc_text      = "Rows show bucketed H1 point totals. Percentages are weighted averages across all games in each bucket."
+)
+```
+
+### Raw Detail
+
+```{r h1pts_raw, echo=FALSE, warning=FALSE, message=FALSE}
+build_conditional_table(
+  data           = h1pts_conditional,
+  player_col     = "scorer",
+  half_col       = "h1pts",
+  prefix         = "total_pts_",
+  half_label     = "H1 Pts",
+  group_header   = "Full Game Points — Over/Under",
+  filter_id_base = "h1pts_raw",
+  desc_text      = "Raw data — each row is an exact H1 point total."
+)
+```
+
+
+Assists {data-navmenu="H1 to Full Game"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Assists
+
+```{r h1ast_bucket, echo=FALSE, warning=FALSE, message=FALSE}
+build_conditional_table(
+  data           = h1ast_conditional_bucketed,
+  player_col     = "assister",
+  half_col       = "h1ast",
+  prefix         = "total_ast_",
+  half_label     = "H1 Ast",
+  group_header   = "Full Game Assists — Over/Under",
+  filter_id_base = "h1ast_bucket",
+  desc_text      = "Rows show bucketed H1 assist totals. Percentages are weighted averages across all games in each bucket."
+)
+```
+
+### Raw Detail
+
+```{r h1ast_raw, echo=FALSE, warning=FALSE, message=FALSE}
+build_conditional_table(
+  data           = h1ast_conditional,
+  player_col     = "assister",
+  half_col       = "h1ast",
+  prefix         = "total_ast_",
+  half_label     = "H1 Ast",
+  group_header   = "Full Game Assists — Over/Under",
+  filter_id_base = "h1ast_raw",
+  desc_text      = "Raw data — each row is an exact H1 assist total."
+)
+```
+
+
+Rebounds {data-navmenu="H1 to Full Game"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Rebounds
+
+```{r h1reb_bucket, echo=FALSE, warning=FALSE, message=FALSE}
+build_conditional_table(
+  data           = h1reb_conditional_bucketed,
+  player_col     = "rebounder",
+  half_col       = "h1reb",
+  prefix         = "total_reb_",
+  half_label     = "H1 Reb",
+  group_header   = "Full Game Rebounds — Over/Under",
+  filter_id_base = "h1reb_bucket",
+  desc_text      = "Rows show bucketed H1 rebound totals. Percentages are weighted averages across all games in each bucket."
+)
+```
+
+### Raw Detail
+
+```{r h1reb_raw, echo=FALSE, warning=FALSE, message=FALSE}
+build_conditional_table(
+  data           = h1reb_conditional,
+  player_col     = "rebounder",
+  half_col       = "h1reb",
+  prefix         = "total_reb_",
+  half_label     = "H1 Reb",
+  group_header   = "Full Game Rebounds — Over/Under",
+  filter_id_base = "h1reb_raw",
+  desc_text      = "Raw data — each row is an exact H1 rebound total."
+)
+```
+
+
+
+Points {data-navmenu="Q3 to Full Game" data-navmenu-icon="fa-solid fa-dice-d20"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Points
+
+```{r q3pts_bucket, echo=FALSE, warning=FALSE, message=FALSE}
+build_conditional_table(
+  data           = q3pts_conditional_bucketed,
+  player_col     = "scorer",
+  half_col       = "q3pts",
+  prefix         = "total_pts_",
+  half_label     = "Q3 Pts",
+  group_header   = "Full Game Points — Over/Under",
+  filter_id_base = "q3pts_bucket",
+  desc_text      = "Rows show bucketed Q1-Q3 point totals. Percentages are weighted averages across all games in each bucket."
+)
+```
+
+### Raw Detail
+
+```{r q3pts_raw, echo=FALSE, warning=FALSE, message=FALSE}
+build_conditional_table(
+  data           = q3pts_conditional,
+  player_col     = "scorer",
+  half_col       = "q3pts",
+  prefix         = "total_pts_",
+  half_label     = "Q3 Pts",
+  group_header   = "Full Game Points — Over/Under",
+  filter_id_base = "q3pts_raw",
+  desc_text      = "Raw data — each row is an exact Q1-Q3 point total."
+)
+```
+
+
+Assists {data-navmenu="Q3 to Full Game"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Assists
+
+```{r q3ast_bucket, echo=FALSE, warning=FALSE, message=FALSE}
+build_conditional_table(
+  data           = q3ast_conditional_bucketed,
+  player_col     = "assister",
+  half_col       = "q3ast",
+  prefix         = "total_ast_",
+  half_label     = "Q3 Ast",
+  group_header   = "Full Game Assists — Over/Under",
+  filter_id_base = "q3ast_bucket",
+  desc_text      = "Rows show bucketed Q1-Q3 assist totals. Percentages are weighted averages across all games in each bucket."
+)
+```
+
+### Raw Detail
+
+```{r q3ast_raw, echo=FALSE, warning=FALSE, message=FALSE}
+build_conditional_table(
+  data           = q3ast_conditional,
+  player_col     = "assister",
+  half_col       = "q3ast",
+  prefix         = "total_ast_",
+  half_label     = "Q3 Ast",
+  group_header   = "Full Game Assists — Over/Under",
+  filter_id_base = "q3ast_raw",
+  desc_text      = "Raw data — each row is an exact Q1-Q3 assist total."
+)
+```
+
+
+Rebounds {data-navmenu="Q3 to Full Game"}
+=======================================================================
+
+Row {.tabset .tabset-fade .tabset-pills data-height=1000}
+-----------------------------------------------------------------------
+
+### Rebounds
+
+```{r q3reb_bucket, echo=FALSE, warning=FALSE, message=FALSE}
+build_conditional_table(
+  data           = q3reb_conditional_bucketed,
+  player_col     = "rebounder",
+  half_col       = "q3reb",
+  prefix         = "total_reb_",
+  half_label     = "Q3 Reb",
+  group_header   = "Full Game Rebounds — Over/Under",
+  filter_id_base = "q3reb_bucket",
+  desc_text      = "Rows show bucketed Q1-Q3 rebound totals. Percentages are weighted averages across all games in each bucket."
+)
+```
+
+### Raw Detail
+
+```{r q3reb_raw, echo=FALSE, warning=FALSE, message=FALSE}
+build_conditional_table(
+  data           = q3reb_conditional,
+  player_col     = "rebounder",
+  half_col       = "q3reb",
+  prefix         = "total_reb_",
+  half_label     = "Q3 Reb",
+  group_header   = "Full Game Rebounds — Over/Under",
+  filter_id_base = "q3reb_raw",
+  desc_text      = "Raw data — each row is an exact Q1-Q3 rebound total."
+)
+```
+
+
+Points {data-navmenu="Game Day Edge" data-navmenu-icon="fa-signal"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+
+### Q1 Points
+
+
+```{r actionable_q1pts, echo=FALSE, warning=FALSE, message=FALSE}
+
+build_actionable_table <- function(data, player_col, half_col, half_label,
+                                   last_col, prefix,
+                                   group_header, filter_id_base) {
+
+  ou_cols <- names(data)[grepl(paste0("^", prefix), names(data))]
+  ou_cols <- ou_cols[order(as.numeric(gsub(prefix, "", ou_cols)))]
+
+  color_fn <- scales::col_numeric(
+    palette = color_set,
+    domain  = c(0, 1)
+  )
+
+  ou_col_defs <- setNames(
+    lapply(ou_cols, function(col) {
+      num     <- as.numeric(gsub(prefix, "", col))
+      ou_name <- paste0(num - 0.5)
+      colDef(
+        name   = ou_name,
+        align  = "center",
+        format = colFormat(suffix = "%"),
+        style  = function(value) {
+          if (is.na(value)) return(list(background = "#f5f5f5"))
+          bg        <- color_fn(value)
+          rgb_vals  <- grDevices::col2rgb(bg) / 255
+          luminance <- 0.299 * rgb_vals[1] + 0.587 * rgb_vals[2] + 0.114 * rgb_vals[3]
+          txt_color <- if (luminance > 0.5) "#111111" else "#ffffff"
+          list(background = bg, color = txt_color,
+               fontWeight = "600", borderRadius = "4px", textAlign = "center")
+        },
+        cell = function(value, index) {
+          if (is.na(value)) return("—")
+          n   <- data$n_games[index]
+          num <- if (!is.na(n)) round(value * n) else "?"
+          htmltools::span(
+            title = paste0(num, " / ", ifelse(is.na(n), "?", n), " games"),
+            style = "cursor: help; border-bottom: 1px dotted #999;",
+            scales::percent(value, accuracy = 1)
+          )
+        }
+      )
+    }),
+    ou_cols
+  )
+
+  col_groups <- list(
+    colGroup(
+      name        = group_header,
+      columns     = ou_cols,
+      headerStyle = list(
+        background   = "#2e6d9e",
+        color        = "#ffffff",
+        fontWeight   = "600",
+        fontSize     = "13px",
+        textAlign    = "center",
+        borderRadius = "4px"
+      )
+    )
+  )
+
+  fixed_col_defs <- list()
+  fixed_col_defs[[player_col]] <- colDef(
+    name        = "Player",
+    sticky      = "left",
+    width       = 150,
+    align       = "left",
+    style       = list(fontWeight = "600"),
+    headerStyle = list(textAlign = "left")
+  )
+  fixed_col_defs[["last_game_date"]] <- colDef(
+    name        = "Last Game",
+    sticky      = "left",
+    width       = 100,
+    align       = "center",
+    format      = colFormat(date = TRUE),
+    headerStyle = list(textAlign = "center")
+  )
+  fixed_col_defs[[last_col]] <- colDef(
+    name        = half_label,
+    sticky      = "left",
+    width       = 90,
+    align       = "center",
+    headerStyle = list(textAlign = "center"),
+    style       = list(fontWeight = "700", color = "#2e6d9e")
+  )
+  fixed_col_defs[["threshold_label"]] <- colDef(
+    name        = "Threshold",
+    sticky      = "left",
+    width       = 100,
+    align       = "center",
+    headerStyle = list(textAlign = "center"),
+    style       = list(fontSize = "12px", color = "#429460", fontWeight = "600")
+  )
+  fixed_col_defs[["n_games"]] <- colDef(
+    name        = "# of Games",
+    sticky      = "left",
+    width       = 80,
+    align       = "center",
+    headerStyle = list(textAlign = "center"),
+    style       = list(color = "#888", fontSize = "12px")
+  )
+
+  col_order <- c(
+    player_col,
+    "last_game_date",
+    last_col,
+    "threshold_label",
+    "n_games",
+    setdiff(names(data), c(player_col, "last_game_date",
+                            last_col, "threshold_label", "n_games"))
+  )
+  data <- data[, col_order]
+
+  shared_data <- SharedData$new(data)
+  player_formula <- as.formula(paste0("~", player_col))
+
+  tbl <- reactable(
+    shared_data,
+    columns             = c(fixed_col_defs, ou_col_defs),
+    columnGroups        = col_groups,
+    highlight           = TRUE,
+    striped             = TRUE,
+    fullWidth           = TRUE,
+    defaultPageSize     = 15,
+    showPageSizeOptions = TRUE,
+    pageSizeOptions     = c(15, 25, 50),
+    paginationType      = "jump",
+    showPageInfo        = TRUE,
+    theme               = fivethirtyeight(),
+    language            = reactableLang(
+      pageInfo     = "{rowStart}-{rowEnd} of {rows} rows",
+      pagePrevious = "← Prev",
+      pageNext     = "Next →"
+    )
+  )
+
+  browsable(
+    tagList(
+      tags$div(
+        style = "display: flex; gap: 24px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap;",
+        tags$div(
+          style = "width: 250px;",
+          tags$label(
+            style = "font-family: sans-serif; font-size: 12px; font-weight: 600; color: #666; display: block; margin-bottom: 4px;",
+            "PLAYER"
+          ),
+          filter_select(
+            id         = paste0(filter_id_base, "_player"),
+            label      = NULL,
+            sharedData = shared_data,
+            group      = player_formula,
+            multiple   = TRUE
+          )
+        )
+      ),
+      tags$p(
+        style = "font-family: sans-serif; font-size: 12px; color: #888; margin-bottom: 8px;",
+        "Hit rates for full game lines when player scores AT LEAST their last game Q1 total. Hover over any percentage to see the fraction."
+      ),
+      tbl
+    )
+  )
+}
+
+build_actionable_table(
+  data           = actionable_q1pts,
+  player_col     = "scorer",
+  half_col       = "fqpts",
+  half_label     = "Last G Q1 Pts",
+  last_col       = "last_game_q1pts",
+  prefix         = "total_pts_",
+  group_header   = "Full Game Points — Over/Under",
+  filter_id_base = "action_q1pts"
+)
+```
+
+Assists {data-navmenu="Game Day Edge"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+
+
+### Q1 Assists
+
+```{r actionable_q1ast, echo=FALSE, warning=FALSE, message=FALSE}
+build_actionable_table(
+  data           = actionable_q1ast,
+  player_col     = "assister",
+  half_col       = "fqast",
+  half_label     = "Last G Q1 Ast",
+  last_col       = "last_game_q1ast",
+  prefix         = "total_ast_",
+  group_header   = "Full Game Assists — Over/Under",
+  filter_id_base = "action_q1ast"
+)
+```
+
+Rebounds {data-navmenu="Game Day Edge"}
+=======================================================================
+
+Row {data-height=1000}
+-----------------------------------------------------------------------
+
+
+### Q1 Rebounds
+
+```{r actionable_q1reb, echo=FALSE, warning=FALSE, message=FALSE}
+build_actionable_table(
+  data           = actionable_q1reb,
+  player_col     = "rebounder",
+  half_col       = "fqreb",
+  half_label     = "Last G Q1 Reb",
+  last_col       = "last_game_q1reb",
+  prefix         = "total_reb_",
+  group_header   = "Full Game Rebounds — Over/Under",
+  filter_id_base = "action_q1reb"
+)
+```
