@@ -204,6 +204,12 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: v
   background: linear-gradient(180deg, rgba(36, 28, 90, 0.5) 0%, rgba(36, 28, 90, 0.92) 60%);
   border-radius: 6px;
 }
+.locked-overlay-peek {
+  background: linear-gradient(180deg, rgba(36, 28, 90, 0.2) 0%, rgba(36, 28, 90, 0.75) 40%, rgba(36, 28, 90, 0.95) 100%);
+}
+.peek-row-visible td { position: relative; z-index: 5; background: var(--bg-card); }
+.peek-row-visible td:first-child { border-left: 3px solid var(--accent); padding-left: 10px; }
+.peek-row-blur { filter: blur(3px); opacity: 0.6; user-select: none; }
 .locked-icon { font-size: 28px; margin-bottom: 12px; opacity: 0.9; }
 .locked-heading { font-family: var(--font-serif); font-size: 17px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; letter-spacing: -0.01em; }
 .locked-desc { font-family: var(--font-sans); font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; max-width: 400px; line-height: 1.5; }
@@ -248,7 +254,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: v
     <div class="top-controls">
       <div class="top-meta" id="metaBox">Loading…</div>
       <div class="toggle-group">
-        <a href="https://www.patreon.com/PropBetIQ" class="toggle-btn toggle-btn-upgrade" title="Upgrade to Pro">↑ Pro</a>
+        <a href="https://www.patreon.com/PropBetIQ" class="toggle-btn toggle-btn-upgrade" title="Upgrade to Edge">↑ Edge</a>
         <button class="toggle-btn" id="themeToggle" title="Toggle theme">Dark</button>
         <button class="toggle-btn" id="densityToggle" title="Toggle density">Comfy</button>
       </div>
@@ -476,7 +482,7 @@ function renderPlayer() {
     const banner = document.createElement('div');
     banner.id = 'upgradeBanner';
     banner.className = 'upgrade-banner';
-    banner.innerHTML = '<div class="upgrade-banner-content"><div class="upgrade-banner-icon">⚡</div><div class="upgrade-banner-text">You\'re on <strong>Starter</strong>. Unlock <strong>Q1/H1/Q3 conditional matrix</strong>, <strong>Home/Away splits</strong>, and <strong>vs Opponent</strong> filters with Pro or Sharp.</div></div><a href="' + UPGRADE_URL + '" class="upgrade-btn">Upgrade — $5/mo</a>';
+    banner.innerHTML = '<div class="upgrade-banner-content"><div class="upgrade-banner-icon">⚡</div><div class="upgrade-banner-text">You\'re on <strong>Starter</strong>. Unlock <strong>Q1/H1/Q3 conditional matrix</strong>, <strong>vs Tonight\'s Opponent</strong>, and <strong>Last 10 games</strong> filter with Edge.</div></div><a href="' + UPGRADE_URL + '" class="upgrade-btn">Upgrade — $7/mo</a>';
     document.getElementById('playerHeader').insertAdjacentElement('afterend', banner);
   }
   const categories = Object.keys(CATEGORY_LABELS);
@@ -595,18 +601,16 @@ function renderStatContent() {
     '<div id="filterBar"></div>' +
     '<div class="line-card"><div class="line-row"><label class="micro-label">Line</label><input type="range" id="lineSlider" min="' + lineCfg.min + '" max="' + lineCfg.max + '" step="' + lineCfg.step + '" value="' + initLine + '"><div class="line-val" id="lineDisplay">—</div></div><div class="metrics-grid" id="metricsGrid"></div><div class="verdict" id="verdictBox"></div></div>' +
     '<div class="panel"><div class="panel-header"><div class="panel-title">Season vs recent form</div><div class="panel-sub" id="recentFormSub">' + catGames.length + ' games</div></div><div id="recentFormPanel"></div></div>' +
-    (FEATURES.contextSplits
-      ? '<div class="panel"><div class="panel-header"><div class="panel-title">Home vs away</div></div><div id="homeAwayPanel"></div></div>'
-      : buildLockedPanel('Home vs Away splits', 'homeaway', 'See how <strong>' + currentPlayer.display_name.split(' ').slice(-1)[0] + '</strong> performs at home vs on the road with your line.', 'Sharp', '$9')) +
+    '<div class="panel"><div class="panel-header"><div class="panel-title">Home vs away</div></div><div id="homeAwayPanel"></div></div>' +
     (showCM
       ? '<div class="panel"><div class="panel-header"><div class="panel-title">Q1 pace → full game</div><div class="panel-sub">Live betting edge</div></div><div id="q1Panel"></div></div>'
-      : (meta.hasCond ? buildLockedPanel('Q1 pace → full game', 'condmatrix', 'The <strong>live betting edge</strong>. See how a hot or cold Q1 predicts the full-game hit rate — for every threshold.', 'Pro', '$5') : '')) +
+      : (meta.hasCond ? buildLockedPanel('Q1 pace → full game', 'condmatrix', 'The <strong>live betting edge</strong>. See how a hot or cold Q1 predicts the full-game hit rate — for every threshold.', 'Edge', '$7', 'q1') : '')) +
     (showCM
       ? '<div class="panel"><div class="panel-header"><div class="panel-title">Halftime pace → full game</div><div class="panel-sub">Live betting edge</div></div><div id="h1Panel"></div></div>'
-      : (meta.hasCond ? buildLockedPanel('Halftime pace → full game', 'condmatrix', 'Bet at halftime with data. See how first-half production predicts full-game overs.', 'Pro', '$5') : '')) +
+      : (meta.hasCond ? buildLockedPanel('Halftime pace → full game', 'condmatrix', 'Bet at halftime with data. See how first-half production predicts full-game overs.', 'Edge', '$7', 'h1') : '')) +
     (showCM
       ? '<div class="panel"><div class="panel-header"><div class="panel-title">Through Q3 → full game</div><div class="panel-sub">Live betting edge</div></div><div id="q3Panel"></div></div>'
-      : (meta.hasCond ? buildLockedPanel('Through Q3 → full game', 'condmatrix', 'Highest predictive power — only one quarter remains. See what the Q3 pace predicts.', 'Pro', '$5') : ''));
+      : (meta.hasCond ? buildLockedPanel('Through Q3 → full game', 'condmatrix', 'Highest predictive power — only one quarter remains. See what the Q3 pace predicts.', 'Edge', '$7', 'q3') : ''));
 
   document.getElementById('statContent').innerHTML = html;
   const statSel = document.getElementById('statSelect');
@@ -645,7 +649,7 @@ function renderFilterBar() {
 
   const oppSection = FEATURES.filters
     ? (oppOptions ? '<div class="filter-group' + collapsedClass + '" data-group="opp"><div class="filter-group-label">vs Specific opponent <button class="filter-group-toggle">▼</button></div><div class="opp-selector"><select id="oppSelect"><option value="">— All opponents —</option>' + oppOptions + '</select></div></div>' : '')
-    : (oppOptions ? '<div class="filter-group' + collapsedClass + '" data-group="opp"><div class="filter-group-label">vs Specific opponent <span class="filter-locked-badge">🔒 Sharp</span><button class="filter-group-toggle">▼</button></div><div class="opp-selector"><select id="oppSelect" disabled><option>— Upgrade to unlock —</option></select></div></div>' : '');
+    : (oppOptions ? '<div class="filter-group' + collapsedClass + '" data-group="opp"><div class="filter-group-label">vs Specific opponent <span class="filter-locked-badge">🔒 Edge</span><button class="filter-group-toggle">▼</button></div><div class="opp-selector"><select id="oppSelect" disabled><option>— Upgrade to unlock —</option></select></div></div>' : '');
 
   bar.innerHTML = '<div class="filter-bar">' +
     '<div class="filter-bar-header"><div class="filter-bar-title">Filters' + (activeCount > 0 ? '<span class="filter-bar-title-count">' + activeCount + ' active</span>' : '') + '</div><button class="filter-clear-btn" id="filterClearBtn"' + (activeCount === 0 ? ' disabled' : '') + '>Clear all</button></div>' +
@@ -714,9 +718,7 @@ function renderAllPanels() {
   if (subEl) subEl.textContent = filterCount > 0 ? filtered.length + ' of ' + catGames.length + ' games' : catGames.length + ' games';
 
   if (filtered.length === 0) {
-    ['recentFormPanel'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = '<div class="empty-panel">NO GAMES MATCH FILTERS</div>'; });
-    const homeAwayEl = document.getElementById('homeAwayPanel');
-    if (homeAwayEl) homeAwayEl.innerHTML = '<div class="empty-panel">NO GAMES MATCH FILTERS</div>';
+    ['recentFormPanel', 'homeAwayPanel'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = '<div class="empty-panel">NO GAMES MATCH FILTERS</div>'; });
     ['q1Panel', 'h1Panel', 'q3Panel'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = '<div class="empty-panel">NO GAMES MATCH FILTERS</div>'; });
     return;
   }
@@ -738,8 +740,7 @@ function renderAllPanels() {
     '<div class="split-row"><div class="split-label">Last 10 games <span class="trend ' + trendClass + '">' + trendLabel + '</span></div><div class="split-bar-track"><div class="split-bar-fill" style="width:' + (l10Hr.rate * 100).toFixed(0) + '%; background:' + barColor(l10Hr.rate) + '"></div></div><div class="split-rate">' + fmtPct(l10Hr.rate) + '</div><div class="split-n">avg ' + fmtNum(l10Avg) + '</div></div>';
 
   const locGroups = groupBy(filtered, 'loc');
-  const homeAwayEl = document.getElementById('homeAwayPanel');
-  if (homeAwayEl) homeAwayEl.innerHTML = ['home', 'away'].map(function(loc) { return renderSplitRow(LOCATION_LABELS[loc], locGroups[loc], line, activeFilters.loc === loc); }).join('');
+  document.getElementById('homeAwayPanel').innerHTML = ['home', 'away'].map(function(loc) { return renderSplitRow(LOCATION_LABELS[loc], locGroups[loc], line, activeFilters.loc === loc); }).join('');
 
   // Q1/H1/Q3 conditional matrices (threshold-driven, Option B)
   const meta = getStatFieldMeta();
@@ -751,29 +752,109 @@ function renderAllPanels() {
   }
 }
 
-function buildLockedPanel(title, kind, description, targetTier, price) {
-  targetTier = targetTier || 'Sharp';
-  price = price || '$9';
-  const ghostHtml = kind === 'homeaway'
-    ? '<div style="padding: 8px 0;"><div style="display:grid;grid-template-columns:150px 1fr 60px 70px;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);"><div style="color:var(--text-secondary);font-family:var(--font-mono);font-size:11px;">Home</div><div><div style="background:var(--bg-elevated);height:8px;border-radius:4px;border:1px solid var(--border);"><div style="height:100%;border-radius:4px;width:72%;background:#4ade80;"></div></div></div><div style="font-family:var(--font-mono);font-weight:700;text-align:right;font-size:13px;">72%</div><div style="color:var(--text-muted);text-align:right;font-family:var(--font-mono);font-size:10px;">— gm</div></div><div style="display:grid;grid-template-columns:150px 1fr 60px 70px;gap:14px;align-items:center;padding:12px 0;"><div style="color:var(--text-secondary);font-family:var(--font-mono);font-size:11px;">Away</div><div><div style="background:var(--bg-elevated);height:8px;border-radius:4px;border:1px solid var(--border);"><div style="height:100%;border-radius:4px;width:54%;background:#f39c1f;"></div></div></div><div style="font-family:var(--font-mono);font-weight:700;text-align:right;font-size:13px;">54%</div><div style="color:var(--text-muted);text-align:right;font-family:var(--font-mono);font-size:10px;">— gm</div></div></div>'
-    : kind === 'condmatrix'
-    ? '<table class="cm-table"><thead><tr><th>Q1 pts</th><th>Games</th><th>O 22.5</th><th>O 24.5</th><th>O 26.5</th></tr></thead><tbody><tr><td>2+ pts</td><td class="cm-games">38</td><td><span class="cm-cell neutral">61%</span></td><td><span class="cm-cell neutral">55%</span></td><td><span class="cm-cell fade">42%</span></td></tr><tr><td>5+ pts</td><td class="cm-games">28</td><td><span class="cm-cell edge">75%</span></td><td><span class="cm-cell edge">68%</span></td><td><span class="cm-cell neutral">54%</span></td></tr><tr><td>10+ pts</td><td class="cm-games">14</td><td><span class="cm-cell edge">86%</span></td><td><span class="cm-cell edge">79%</span></td><td><span class="cm-cell edge">71%</span></td></tr></tbody></table>'
-    : '';
+function buildLockedPanel(title, kind, description, targetTier, price, periodKey) {
+  targetTier = targetTier || 'Edge';
+  price = price || '$7';
+  let ghostHtml = '';
+  if (kind === 'homeaway') {
+    ghostHtml = '<div style="padding: 8px 0;"><div style="display:grid;grid-template-columns:150px 1fr 60px 70px;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);"><div style="color:var(--text-secondary);font-family:var(--font-mono);font-size:11px;">Home</div><div><div style="background:var(--bg-elevated);height:8px;border-radius:4px;border:1px solid var(--border);"><div style="height:100%;border-radius:4px;width:72%;background:#4ade80;"></div></div></div><div style="font-family:var(--font-mono);font-weight:700;text-align:right;font-size:13px;">72%</div><div style="color:var(--text-muted);text-align:right;font-family:var(--font-mono);font-size:10px;">— gm</div></div><div style="display:grid;grid-template-columns:150px 1fr 60px 70px;gap:14px;align-items:center;padding:12px 0;"><div style="color:var(--text-secondary);font-family:var(--font-mono);font-size:11px;">Away</div><div><div style="background:var(--bg-elevated);height:8px;border-radius:4px;border:1px solid var(--border);"><div style="height:100%;border-radius:4px;width:54%;background:#f39c1f;"></div></div></div><div style="font-family:var(--font-mono);font-weight:700;text-align:right;font-size:13px;">54%</div><div style="color:var(--text-muted);text-align:right;font-family:var(--font-mono);font-size:10px;">— gm</div></div></div>';
+  } else if (kind === 'condmatrix' && periodKey && currentPlayer) {
+    // Real peek: compute first (floor) and last (max) threshold rows using actual player data
+    ghostHtml = buildPeekMatrix(periodKey);
+  }
   return '<div class="panel locked-panel">' +
     '<div class="locked-panel-header">' +
       '<div class="panel-title">' + title + ' <span class="lock-badge">🔒 ' + targetTier + '</span></div>' +
-      '<div class="panel-sub">' + targetTier + ' tier</div>' +
+      '<div class="panel-sub">Preview · upgrade for full matrix</div>' +
     '</div>' +
     '<div class="locked-content-wrap">' +
-      '<div class="locked-content-blur">' + ghostHtml + '</div>' +
-      '<div class="locked-overlay">' +
+      ghostHtml +
+      '<div class="locked-overlay locked-overlay-peek">' +
         '<div class="locked-icon">🔒</div>' +
-        '<div class="locked-heading">Unlock ' + title + '</div>' +
+        '<div class="locked-heading">Unlock full ' + title + '</div>' +
         '<div class="locked-desc">' + description + '</div>' +
         '<a href="' + UPGRADE_URL + '" class="upgrade-btn" target="_blank">Upgrade to ' + targetTier + ' — ' + price + '/mo</a>' +
       '</div>' +
     '</div>' +
   '</div>';
+}
+
+// Builds a peek preview of the conditional matrix - shows real 2+ (floor) and max threshold rows
+function buildPeekMatrix(period) {
+  const field = currentStatField;
+  const periodField = period + '_' + (field === 'reb' ? 'reb' : (field === 'ast' ? 'ast' : 'pts'));
+  const statUnit = field === 'reb' ? 'reb' : (field === 'ast' ? 'ast' : 'pts');
+  const periodLabel = period === 'q1' ? 'Q1' : (period === 'h1' ? 'H1' : 'Q3');
+
+  const games = getFilteredGames();
+  if (games.length === 0) return '';
+
+  const floor = field === 'pts' ? 2 : 1;
+  const maxPeriodVal = Math.max.apply(null, games.map(g => g[periodField] || 0));
+
+  // Build columns around current line
+  const slider = document.getElementById('lineSlider');
+  const cfg = LINE_CONFIG[field];
+  const currentLine = slider ? parseFloat(slider.value) + cfg.defaultOffset : 20.5;
+  const cols = [];
+  for (let i = -1; i <= 2; i++) {
+    const l = currentLine + i * cfg.step;
+    if (l >= 0.5) cols.push(l);
+  }
+
+  // Build 2+ row (real data)
+  const floorGames = games.filter(g => (g[periodField] || 0) >= floor);
+
+  // Middle blurred rows (fake data for visual)
+  const middleRows = ['5+ ' + statUnit, '8+ ' + statUnit, '10+ ' + statUnit];
+
+  // Top real row (player's actual max, or a high threshold if data too sparse)
+  let topThreshold = null;
+  for (let t = maxPeriodVal; t >= floor + 3; t--) {
+    const n = games.filter(g => (g[periodField] || 0) >= t).length;
+    if (n >= 2) { topThreshold = t; break; }
+  }
+  const topGames = topThreshold ? games.filter(g => (g[periodField] || 0) >= topThreshold) : null;
+
+  // Build the table
+  let html = '<table class="cm-table"><thead><tr><th>' + periodLabel + ' ' + statUnit + '</th><th>Games</th>';
+  cols.forEach(function(l) { html += '<th>O ' + l.toFixed(1) + '</th>'; });
+  html += '</tr></thead><tbody>';
+
+  // Real floor row (visible)
+  html += '<tr class="peek-row-visible"><td>' + floor + '+ ' + statUnit + '</td><td class="cm-games">' + floorGames.length + '</td>';
+  cols.forEach(function(l) {
+    const hr = computeHitRate(floorGames, field, l);
+    if (hr.n === 0) html += '<td><span class="cm-cell empty">—</span></td>';
+    else html += '<td><span class="cm-cell ' + verdictClass(hr.rate) + '">' + fmtPct(hr.rate) + '</span></td>';
+  });
+  html += '</tr>';
+
+  // Blurred middle rows (fake)
+  middleRows.forEach(function(label, idx) {
+    const fakePcts = [[55, 48, 42, 36], [72, 65, 58, 50], [83, 76, 68, 60]][idx];
+    html += '<tr class="peek-row-blur"><td>' + label + '</td><td class="cm-games">••</td>';
+    cols.forEach(function(l, i) {
+      const p = fakePcts[i] || 50;
+      const cls = p >= 65 ? 'edge' : (p >= 45 ? 'neutral' : 'fade');
+      html += '<td><span class="cm-cell ' + cls + '">' + p + '%</span></td>';
+    });
+    html += '</tr>';
+  });
+
+  // Real top row (visible) — only if we found one
+  if (topThreshold && topGames) {
+    html += '<tr class="peek-row-visible"><td>' + topThreshold + '+ ' + statUnit + '</td><td class="cm-games">' + topGames.length + '</td>';
+    cols.forEach(function(l) {
+      const hr = computeHitRate(topGames, field, l);
+      if (hr.n === 0) html += '<td><span class="cm-cell empty">—</span></td>';
+      else html += '<td><span class="cm-cell ' + verdictClass(hr.rate) + '">' + fmtPct(hr.rate) + '</span></td>';
+    });
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  return html;
 }
 
 function renderConditionalMatrix(container, games, period, currentLine) {
