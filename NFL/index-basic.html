@@ -63,7 +63,10 @@ input[type="text"]:focus, select:focus { outline: none; border-color: var(--acce
 .search-result:hover { background: var(--bg-elevated-2); }
 .search-result-team { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); letter-spacing: 0.05em; }
 .player-header { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: var(--pad-card); margin-bottom: var(--gap-lg); display: flex; align-items: center; gap: 16px; box-shadow: var(--shadow-card); }
-.player-avatar { width: 52px; height: 52px; border-radius: 50%; background: var(--accent); color: #1a1440; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-weight: 700; font-size: 15px; flex-shrink: 0; }
+.player-headshot { width: 60px; height: 44px; border-radius: 6px; object-fit: cover; background: var(--bg-elevated); flex-shrink: 0; border: 1px solid var(--border); }
+.player-avatar { width: 52px; height: 52px; border-radius: 50%; background: var(--accent); color: #1a1440; align-items: center; justify-content: center; font-family: var(--font-mono); font-weight: 700; font-size: 15px; flex-shrink: 0; }
+.player-info { flex: 1; }
+.team-logo { width: 48px; height: 48px; object-fit: contain; opacity: 0.9; flex-shrink: 0; }
 .player-info h2 { font-family: var(--font-serif); font-size: var(--font-h2); font-weight: 500; letter-spacing: -0.01em; margin-bottom: 2px; line-height: 1.2; }
 .player-info .player-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); letter-spacing: 0.08em; text-transform: uppercase; }
 .quick-check { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: var(--pad-card); margin-bottom: var(--gap-lg); box-shadow: var(--shadow-card); }
@@ -234,7 +237,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: v
     <div class="top-controls">
       <div class="top-meta" id="metaBox">Loading…</div>
       <div class="toggle-group">
-        <a href="https://www.patreon.com/checkout/PropBetIQ?rid=29332522&vanity=15902684" class="toggle-btn toggle-btn-upgrade" title="Upgrade to Edge">↑ Edge</a>
+        <a href="https://www.patreon.com/PropBetIQ" class="toggle-btn toggle-btn-upgrade" title="Upgrade to Edge">↑ Edge</a>
         <button class="toggle-btn" id="themeToggle" title="Toggle theme">Dark</button>
         <button class="toggle-btn" id="densityToggle" title="Toggle density">Comfy</button>
       </div>
@@ -260,7 +263,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: v
         <div class="upgrade-banner-icon">⚡</div>
         <div class="upgrade-banner-text">You're on <strong>Basic</strong>. Unlock <strong>Q1 conditional matrix</strong>, <strong>weather splits</strong>, <strong>opponent tier</strong>, and stackable filters with Edge.</div>
       </div>
-      <a href="https://www.patreon.com/checkout/PropBetIQ?rid=29332522&vanity=15902684" class="upgrade-btn">Upgrade — $7/mo</a>
+      <a href="https://www.patreon.com/PropBetIQ" class="upgrade-btn">Upgrade — $7/mo</a>
     </div>
 
     <div class="quick-check">
@@ -284,7 +287,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: v
 <script>
 const TIER = 'basic';
 const FEATURES = { weather: false, opponent: false, q1: false, filterWx: false, filterOpp: false };
-const UPGRADE_URL = 'https://www.patreon.com/checkout/PropBetIQ?rid=29332522&vanity=15902684';
+const UPGRADE_URL = 'https://www.patreon.com/PropBetIQ';
 
 let DATA = null, currentPlayer = null, currentCategory = 'passing', currentStatField = 'yards';
 let activeFilters = { loc: null, wx: null, opp: null };
@@ -305,6 +308,15 @@ const LINE_CONFIG = {
   tkl: { min: 0, max: 15, step: 1, defaultOffset: 0.5 }, solo: { min: 0, max: 12, step: 1, defaultOffset: 0.5 }, ast: { min: 0, max: 10, step: 1, defaultOffset: 0.5 }, ints: { min: 0, max: 3, step: 1, defaultOffset: 0.5 }
 };
 const LOCATION_LABELS = { home: 'Home', away: 'Away' };
+const NFL_TEAM_ABBRS = {
+  'ARI': 'ari', 'ATL': 'atl', 'BAL': 'bal', 'BUF': 'buf', 'CAR': 'car',
+  'CHI': 'chi', 'CIN': 'cin', 'CLE': 'cle', 'DAL': 'dal', 'DEN': 'den',
+  'DET': 'det', 'GB': 'gb',   'HOU': 'hou', 'IND': 'ind', 'JAX': 'jax',
+  'KC':  'kc',  'LA':  'lar', 'LAR': 'lar', 'LAC': 'lac', 'LV':  'lv',
+  'MIA': 'mia', 'MIN': 'min', 'NE':  'ne',  'NO':  'no',  'NYG': 'nyg',
+  'NYJ': 'nyj', 'PHI': 'phi', 'PIT': 'pit', 'SEA': 'sea', 'SF':  'sf',
+  'TB':  'tb',  'TEN': 'ten', 'WAS': 'wsh'
+};
 const WEATHER_LABELS = { dome: 'Dome', clear: 'Clear', windy: 'Windy', heavy_wind: 'Heavy wind', rain: 'Rain', snow: 'Snow', cold_extreme: 'Cold extreme' };
 const OPP_LABELS = { top_pass_def: 'Top pass D', mid_pass_def: 'Mid pass D', bottom_pass_def: 'Bottom pass D', top_run_def: 'Top run D', mid_run_def: 'Mid run D', bottom_run_def: 'Bottom run D', high_volume_off: 'High-vol off', mid_volume_off: 'Mid-vol off', low_volume_off: 'Low-vol off' };
 
@@ -381,7 +393,18 @@ function selectPlayer(playerId) {
 function renderPlayer() {
   document.getElementById('playerContent').classList.remove('hidden');
   const initials = currentPlayer.display_name.split(' ').map(function(w) { return w[0]; }).slice(0, 2).join('');
-  document.getElementById('playerHeader').innerHTML = '<div class="player-avatar">' + initials + '</div><div class="player-info"><h2>' + currentPlayer.display_name + '</h2><div class="player-meta">' + (currentPlayer.position || '—') + ' · ' + (currentPlayer.current_team || '—') + '</div></div>';
+  const team = currentPlayer.current_team || '';
+  const position = currentPlayer.position || '';
+  const teamAbbr = NFL_TEAM_ABBRS[team] || team.toLowerCase();
+  const headshotUrl = currentPlayer.headshot_url || '';
+  const teamLogoUrl = teamAbbr ? 'https://a.espncdn.com/i/teamlogos/nfl/500/' + teamAbbr + '.png' : '';
+  document.getElementById('playerHeader').innerHTML =
+    (headshotUrl
+      ? '<img class="player-headshot" src="' + headshotUrl + '" alt="' + currentPlayer.display_name + '" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';"><div class="player-avatar" style="display:none;">' + initials + '</div>'
+      : '<div class="player-avatar" style="display:flex;">' + initials + '</div>') +
+    '<div class="player-info"><h2>' + currentPlayer.display_name + '</h2>' +
+    '<div class="player-meta">' + (position ? position + ' · ' : '') + (team || '—') + '</div></div>' +
+    (teamLogoUrl ? '<img class="team-logo" src="' + teamLogoUrl + '" alt="' + team + '" onerror="this.style.display=\'none\';">' : '');
   const categories = Object.keys(CATEGORY_LABELS).filter(function(c) { return currentPlayer[c]; });
   if (categories.length === 0) { document.getElementById('categoryTabs').innerHTML = ''; document.getElementById('statContent').innerHTML = '<div class="loading">NO STAT DATA FOR THIS PLAYER</div>'; return; }
   if (categories.indexOf(currentCategory) === -1) currentCategory = categories[0];
