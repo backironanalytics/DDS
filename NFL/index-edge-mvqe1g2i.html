@@ -135,6 +135,57 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: v
 .metric-sub { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 4px; letter-spacing: 0.05em; }
 .verdict { padding: 12px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; }
 .verdict-icon { font-family: var(--font-mono); font-weight: 700; margin-right: 8px; font-size: 15px; }
+
+/* ── Info tooltip system ────────────────────────────────────────── */
+.info-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--bg-elevated); color: var(--text-secondary);
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  cursor: pointer; margin-left: 4px; vertical-align: middle;
+  border: 1px solid var(--border); transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.info-icon:hover, .info-icon.active { background: var(--accent); color: #1a1440; border-color: var(--accent); }
+.info-tooltip {
+  position: fixed; z-index: 9999; max-width: 280px;
+  background: var(--bg-elevated-2); color: var(--text-primary);
+  border: 1px solid var(--accent); border-radius: 6px;
+  padding: 12px 14px; font-family: var(--font-sans); font-size: 12px;
+  line-height: 1.5; box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  display: none; pointer-events: auto;
+}
+.info-tooltip.show { display: block; }
+.info-tooltip-title { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--accent); text-transform: uppercase; margin-bottom: 6px; font-weight: 700; }
+.info-tooltip-body { color: var(--text-secondary); font-size: 12px; }
+.info-tooltip-body strong { color: var(--text-primary); font-weight: 600; }
+.info-tooltip-close { position: absolute; top: 6px; right: 8px; color: var(--text-muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px; }
+.info-tooltip-close:hover { color: var(--accent); }
+.tooltip-backdrop {
+  position: fixed; inset: 0; z-index: 9998; background: transparent;
+  display: none;
+}
+.tooltip-backdrop.show { display: block; }
+
+/* ── Sparkline chart ────────────────────────────────────────────── */
+.sparkline-wrap {
+  padding: 10px 0 14px 0; margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.sparkline-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.sparkline-title { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--text-secondary); text-transform: uppercase; }
+.sparkline-legend { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 0.04em; }
+.sparkline-legend .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 3px; vertical-align: middle; }
+.sparkline-svg { width: 100%; height: 60px; overflow: visible; }
+.spark-line { stroke: var(--text-muted); stroke-width: 1; fill: none; opacity: 0.5; }
+.spark-line-ref { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 3; fill: none; opacity: 0.8; }
+.spark-dot { cursor: pointer; transition: r 0.15s ease; }
+.spark-dot:hover { r: 5; }
+.spark-dot-over { fill: var(--success); }
+.spark-dot-under { fill: var(--danger); }
+.spark-dot-tie { fill: var(--warning); }
+.spark-tooltip { position: fixed; z-index: 9997; background: var(--bg-elevated-2); border: 1px solid var(--accent); border-radius: 4px; padding: 6px 10px; font-family: var(--font-mono); font-size: 11px; color: var(--text-primary); pointer-events: none; display: none; box-shadow: 0 3px 12px rgba(0,0,0,0.4); }
+.spark-tooltip.show { display: block; }
 .panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: var(--pad-panel); margin-bottom: var(--gap-md); box-shadow: var(--shadow-card); }
 .panel-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
 .panel-title { font-family: var(--font-serif); font-size: 16px; font-weight: 500; letter-spacing: -0.01em; }
@@ -313,6 +364,164 @@ const NFL_TEAM_ABBRS = {
 const WEATHER_LABELS = { dome: 'Dome', clear: 'Clear', windy: 'Windy', heavy_wind: 'Heavy wind', rain: 'Rain', snow: 'Snow', cold_extreme: 'Cold extreme' };
 const OPP_LABELS = { top_pass_def: 'Top pass D', mid_pass_def: 'Mid pass D', bottom_pass_def: 'Bottom pass D', top_run_def: 'Top run D', mid_run_def: 'Mid run D', bottom_run_def: 'Bottom run D', high_volume_off: 'High-vol off', mid_volume_off: 'Mid-vol off', low_volume_off: 'Low-vol off' };
 
+const DEFINITIONS = {
+  weather: {
+    title: 'Weather Categories',
+    body: 'Every NFL game is classified into one bucket based on stadium and forecast at kickoff:<br><br>' +
+      '<strong>Dome:</strong> indoor stadium (Vegas, Detroit, Atlanta, etc.). Ignores weather entirely.<br>' +
+      '<strong>Clear:</strong> outdoor game, dry conditions, wind &lt;10 mph.<br>' +
+      '<strong>Windy:</strong> wind 10-19 mph. Enough to affect deep passing.<br>' +
+      '<strong>Heavy wind:</strong> wind ≥20 mph. Major impact on passing/kicking.<br>' +
+      '<strong>Rain:</strong> active precipitation during game.<br>' +
+      '<strong>Snow:</strong> snowfall during game.<br>' +
+      '<strong>Cold extreme:</strong> game temperature ≤25°F. Affects grip and stamina.'
+  },
+  opp_pass: {
+    title: 'Pass Defense Tiers',
+    body: 'Defenses are ranked 1-32 by passing yards allowed per game this season:<br><br>' +
+      '<strong>Top pass D:</strong> rank 1-10 (best defenses).<br>' +
+      '<strong>Mid pass D:</strong> rank 11-22.<br>' +
+      '<strong>Bottom pass D:</strong> rank 23-32 (worst — most exploitable).<br><br>' +
+      'Rankings update weekly during the season.'
+  },
+  opp_run: {
+    title: 'Run Defense Tiers',
+    body: 'Defenses are ranked 1-32 by rushing yards allowed per game this season:<br><br>' +
+      '<strong>Top run D:</strong> rank 1-10 (best defenses).<br>' +
+      '<strong>Mid run D:</strong> rank 11-22.<br>' +
+      '<strong>Bottom run D:</strong> rank 23-32.<br><br>' +
+      'Rankings update weekly during the season.'
+  },
+  opp_vol: {
+    title: 'Offensive Volume Tiers',
+    body: 'Offenses are ranked 1-32 by plays run per game this season:<br><br>' +
+      '<strong>High-vol off:</strong> rank 1-10 (fastest-paced).<br>' +
+      '<strong>Mid-vol off:</strong> rank 11-22.<br>' +
+      '<strong>Low-vol off:</strong> rank 23-32 (slowest, ball-control).<br><br>' +
+      'Higher volume = more opportunities for props to hit.'
+  },
+  verdict: {
+    title: 'Verdict Thresholds',
+    body: 'Based on the hit rate for your current filter set:<br><br>' +
+      '<strong>Over edge (green):</strong> hit rate ≥65%. Historical data strongly favors the over.<br>' +
+      '<strong>Toss-up (yellow):</strong> hit rate 45-64%. Coin flip — no meaningful edge.<br>' +
+      '<strong>Under lean (red):</strong> hit rate &lt;45%. Historical data favors the under.<br><br>' +
+      'Sample size matters — verdicts on 3+ games only.'
+  },
+  filters: {
+    title: 'How Filters Work',
+    body: 'Filters narrow the game set used for hit rate calculations. Stack multiple filters (e.g. Home + Heavy wind + Bottom pass D) to see how a specific matchup type has played out this season. <strong>Smaller sample sizes = less reliable percentages.</strong> Watch the games count — under 3 games and the number is noisy.'
+  },
+  q1: {
+    title: 'Q1 Pace → Full Game',
+    body: 'The live betting edge. Shows how a player\'s Q1 output predicts the full-game hit rate.<br><br>' +
+      'Rows represent Q1 pace buckets (e.g. "40-69 passing yards"). The hit rate column shows how often the player finished OVER the current line when they hit that Q1 pace historically.<br><br>' +
+      'Use during a live game: when a player crosses a Q1 threshold, check the corresponding row for the historical over-rate on the full-game line.'
+  }
+};
+
+let activeTooltip = null;
+function showTooltip(key, evt) {
+  const def = DEFINITIONS[key];
+  if (!def) return;
+  const backdrop = document.getElementById('tooltipBackdrop') || createTooltipInfrastructure();
+  const tip = document.getElementById('activeTooltip');
+  tip.innerHTML = '<span class="info-tooltip-close" onclick="hideTooltip()">×</span>' +
+    '<div class="info-tooltip-title">' + def.title + '</div>' +
+    '<div class="info-tooltip-body">' + def.body + '</div>';
+  tip.classList.add('show');
+  backdrop.classList.add('show');
+
+  const x = evt.clientX || (evt.touches && evt.touches[0].clientX) || 100;
+  const y = evt.clientY || (evt.touches && evt.touches[0].clientY) || 100;
+  tip.style.visibility = 'hidden';
+  tip.style.left = '0'; tip.style.top = '0';
+  const rect = tip.getBoundingClientRect();
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let left = x - rect.width / 2, top = y + 16;
+  if (left < 10) left = 10;
+  if (left + rect.width > vw - 10) left = vw - rect.width - 10;
+  if (top + rect.height > vh - 10) top = y - rect.height - 12;
+  tip.style.left = left + 'px'; tip.style.top = top + 'px';
+  tip.style.visibility = 'visible';
+  activeTooltip = key;
+}
+function hideTooltip() {
+  const tip = document.getElementById('activeTooltip');
+  const backdrop = document.getElementById('tooltipBackdrop');
+  if (tip) tip.classList.remove('show');
+  if (backdrop) backdrop.classList.remove('show');
+  activeTooltip = null;
+}
+function createTooltipInfrastructure() {
+  const backdrop = document.createElement('div');
+  backdrop.id = 'tooltipBackdrop';
+  backdrop.className = 'tooltip-backdrop';
+  backdrop.addEventListener('click', hideTooltip);
+  document.body.appendChild(backdrop);
+  const tip = document.createElement('div');
+  tip.id = 'activeTooltip';
+  tip.className = 'info-tooltip';
+  document.body.appendChild(tip);
+  return backdrop;
+}
+function infoIcon(key) {
+  return '<span class="info-icon" onclick="event.stopPropagation(); showTooltip(\'' + key + '\', event)">?</span>';
+}
+
+function buildSparkline(games, statField, line) {
+  if (!games || games.length === 0) return '';
+  const sorted = games.slice().sort(function(a, b) { return (a.wk || 0) - (b.wk || 0); });
+  const values = sorted.map(function(g) { return g[statField] || 0; });
+  const maxVal = Math.max.apply(null, values.concat([line]));
+  const minVal = 0;
+  const w = 300, h = 60, padL = 8, padR = 8, padT = 6, padB = 6;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  const xStep = sorted.length > 1 ? plotW / (sorted.length - 1) : 0;
+  const scaleY = function(v) { return padT + plotH - ((v - minVal) / (maxVal - minVal || 1)) * plotH; };
+  const points = sorted.map(function(g, i) {
+    const x = padL + i * xStep;
+    const y = scaleY(g[statField] || 0);
+    return { x: x, y: y, val: g[statField] || 0, wk: g.wk, opp: g.opp, loc: g.loc };
+  });
+  const pathD = points.map(function(p, i) { return (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' ');
+  const lineY = scaleY(line);
+  const overCount = values.filter(function(v) { return v > line; }).length;
+  const underCount = values.filter(function(v) { return v < line; }).length;
+  const dots = points.map(function(p) {
+    const cls = p.val > line ? 'spark-dot-over' : (p.val < line ? 'spark-dot-under' : 'spark-dot-tie');
+    const label = 'Wk ' + p.wk + (p.loc === 'away' ? ' @ ' : ' vs ') + (p.opp || '') + ' — ' + p.val.toFixed(1);
+    return '<circle class="spark-dot ' + cls + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="3" data-label="' + label + '" onmouseenter="showSparkTip(event, this)" onmouseleave="hideSparkTip()" onclick="showSparkTip(event, this)"></circle>';
+  }).join('');
+  return '<div class="sparkline-wrap">' +
+    '<div class="sparkline-header">' +
+      '<div class="sparkline-title">Game-by-game · line: ' + line.toFixed(1) + '</div>' +
+      '<div class="sparkline-legend"><span class="dot" style="background:var(--success)"></span>Over ' + overCount + ' · <span class="dot" style="background:var(--danger)"></span>Under ' + underCount + '</div>' +
+    '</div>' +
+    '<svg class="sparkline-svg" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
+      '<line class="spark-line-ref" x1="' + padL + '" y1="' + lineY.toFixed(1) + '" x2="' + (w - padR) + '" y2="' + lineY.toFixed(1) + '"></line>' +
+      '<path class="spark-line" d="' + pathD + '"></path>' + dots +
+    '</svg></div>';
+}
+function showSparkTip(evt, el) {
+  let tip = document.getElementById('sparkTooltip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'sparkTooltip'; tip.className = 'spark-tooltip';
+    document.body.appendChild(tip);
+  }
+  tip.textContent = el.dataset.label;
+  tip.classList.add('show');
+  const x = evt.clientX || (evt.touches && evt.touches[0].clientX) || 100;
+  const y = evt.clientY || (evt.touches && evt.touches[0].clientY) || 100;
+  tip.style.left = (x + 12) + 'px';
+  tip.style.top = (y - 30) + 'px';
+}
+function hideSparkTip() {
+  const tip = document.getElementById('sparkTooltip');
+  if (tip) tip.classList.remove('show');
+}
+
 function loadPreferences() {
   const savedTheme = localStorage.getItem('propbetiq_theme') || 'dark';
   const savedDensity = localStorage.getItem('propbetiq_density') || 'comfortable';
@@ -456,9 +665,9 @@ function renderStatContent() {
     '<div class="line-card"><div class="line-row"><label class="micro-label">Line</label><input type="range" id="lineSlider" min="' + lineCfg.min + '" max="' + lineCfg.max + '" step="' + lineCfg.step + '" value="' + initLine + '"><div class="line-val" id="lineDisplay">—</div></div><div class="metrics-grid" id="metricsGrid"></div><div class="verdict" id="verdictBox"></div></div>' +
     '<div class="panel"><div class="panel-header"><div class="panel-title">Season vs recent form</div><div class="panel-sub" id="recentFormSub">' + catGames.length + ' games</div></div><div id="recentFormPanel"></div></div>' +
     '<div class="panel"><div class="panel-header"><div class="panel-title">Home vs away</div></div><div id="homeAwayPanel"></div></div>' +
-    (FEATURES.weather ? '<div class="panel"><div class="panel-header"><div class="panel-title">Weather conditions</div></div><div id="weatherPanel"></div></div>' : '') +
-    (FEATURES.opponent ? '<div class="panel"><div class="panel-header"><div class="panel-title">Opponent strength</div></div><div id="opponentPanel"></div></div>' : '') +
-    (showQ1 ? '<div class="panel"><div class="panel-header"><div class="panel-title">Q1 pace → full game outcome</div><div class="panel-sub">Live betting edge</div></div><div id="q1Panel"></div></div>' : '');
+    (FEATURES.weather ? '<div class="panel"><div class="panel-header"><div class="panel-title">Weather conditions ' + infoIcon('weather') + '</div></div><div id="weatherPanel"></div></div>' : '') +
+    (FEATURES.opponent ? '<div class="panel"><div class="panel-header"><div class="panel-title">Opponent strength ' + infoIcon('opp_pass') + '</div></div><div id="opponentPanel"></div></div>' : '') +
+    (showQ1 ? '<div class="panel"><div class="panel-header"><div class="panel-title">Q1 pace → full game outcome ' + infoIcon('q1') + '</div><div class="panel-sub">Live betting edge</div></div><div id="q1Panel"></div></div>' : '');
 
   document.getElementById('statContent').innerHTML = html;
   document.getElementById('statSelect').addEventListener('change', function(e) { setStatField(e.target.value); });
@@ -505,10 +714,10 @@ function renderFilterBar() {
   const isMobile = window.matchMedia('(max-width: 720px)').matches;
   const collapsedClass = isMobile ? ' collapsed' : '';
   bar.innerHTML = '<div class="filter-bar">' +
-    '<div class="filter-bar-header"><div class="filter-bar-title">Filters' + (activeCount > 0 ? ' <span class="filter-bar-title-count">' + activeCount + ' active</span>' : '') + '</div><button class="filter-clear-btn" id="filterClearBtn"' + (activeCount === 0 ? ' disabled' : '') + '>Clear all</button></div>' +
+    '<div class="filter-bar-header"><div class="filter-bar-title">Filters ' + infoIcon('filters') + (activeCount > 0 ? ' <span class="filter-bar-title-count">' + activeCount + ' active</span>' : '') + '</div><button class="filter-clear-btn" id="filterClearBtn"' + (activeCount === 0 ? ' disabled' : '') + '>Clear all</button></div>' +
     '<div class="filter-group"><div class="filter-group-label">Location <button class="filter-group-toggle">▼</button></div><div class="filter-chips">' + locChips + '</div></div>' +
-    (wxChips ? '<div class="filter-group' + collapsedClass + '"><div class="filter-group-label">Weather <button class="filter-group-toggle">▼</button></div><div class="filter-chips">' + wxChips + '</div></div>' : '') +
-    (oppChips ? '<div class="filter-group' + collapsedClass + '"><div class="filter-group-label">Opponent <button class="filter-group-toggle">▼</button></div><div class="filter-chips">' + oppChips + '</div></div>' : '') +
+    (wxChips ? '<div class="filter-group' + collapsedClass + '"><div class="filter-group-label">Weather ' + infoIcon('weather') + '<button class="filter-group-toggle">▼</button></div><div class="filter-chips">' + wxChips + '</div></div>' : '') +
+    (oppChips ? '<div class="filter-group' + collapsedClass + '"><div class="filter-group-label">Opponent ' + infoIcon('opp_pass') + '<button class="filter-group-toggle">▼</button></div><div class="filter-chips">' + oppChips + '</div></div>' : '') +
     summaryHtml + '</div>';
 
   bar.querySelectorAll('.filter-chip').forEach(function(chip) { chip.addEventListener('click', function(e) { e.stopPropagation(); toggleFilter(chip.dataset.dim, chip.dataset.val); }); });
@@ -550,11 +759,12 @@ function renderLineCard() {
     '<div class="metric"><div class="metric-label">High</div><div class="metric-val">' + fmtNum(max, 0) + '</div><div class="metric-sub">' + statMeta.unit + '</div></div>';
   const vBox = document.getElementById('verdictBox');
   vBox.className = 'verdict ' + verdictClass(hr.rate);
-  if (hr.rate === null) vBox.innerHTML = '<span class="verdict-icon">·</span>No games match the current filters.';
-  else if (hr.n < 3) vBox.innerHTML = '<span class="verdict-icon">!</span>Sample too small (' + hr.n + ' games). Hit rate not reliable.';
-  else if (hr.rate >= 0.65) vBox.innerHTML = '<span class="verdict-icon">✓</span>Over edge — ' + fmtPct(hr.rate) + ' hit rate at this line (' + hr.n + '-game sample).';
-  else if (hr.rate >= 0.45) vBox.innerHTML = '<span class="verdict-icon">~</span>Toss-up — ' + fmtPct(hr.rate) + ' hit rate at this line (' + hr.n + '-game sample).';
-  else vBox.innerHTML = '<span class="verdict-icon">✗</span>Under lean — ' + fmtPct(hr.rate) + ' over rate (' + hr.n + '-game sample).';
+  const vInfo = ' ' + infoIcon('verdict');
+  if (hr.rate === null) vBox.innerHTML = '<span class="verdict-icon">·</span>No games match the current filters.' + vInfo;
+  else if (hr.n < 3) vBox.innerHTML = '<span class="verdict-icon">!</span>Sample too small (' + hr.n + ' games). Hit rate not reliable.' + vInfo;
+  else if (hr.rate >= 0.65) vBox.innerHTML = '<span class="verdict-icon">✓</span>Over edge — ' + fmtPct(hr.rate) + ' hit rate at this line (' + hr.n + '-game sample).' + vInfo;
+  else if (hr.rate >= 0.45) vBox.innerHTML = '<span class="verdict-icon">~</span>Toss-up — ' + fmtPct(hr.rate) + ' hit rate at this line (' + hr.n + '-game sample).' + vInfo;
+  else vBox.innerHTML = '<span class="verdict-icon">✗</span>Under lean — ' + fmtPct(hr.rate) + ' over rate (' + hr.n + '-game sample).' + vInfo;
 }
 
 function renderSplitRow(label, games, line, isActive) {
@@ -594,6 +804,7 @@ function renderAllPanels() {
   const l4Hr = computeHitRate(l4Games, currentStatField, line);
   const seasonLabel = filterCount > 0 ? 'Filtered (' + filtered.length + ' gm)' : 'Season (' + filtered.length + ' gm)';
   document.getElementById('recentFormPanel').innerHTML =
+    buildSparkline(filtered, currentStatField, line) +
     '<div class="split-row"><div class="split-label">' + seasonLabel + '</div><div class="split-bar-track"><div class="split-bar-fill" style="width:' + (seasonHr.rate * 100).toFixed(0) + '%; background:' + barColor(seasonHr.rate) + '"></div></div><div class="split-rate">' + fmtPct(seasonHr.rate) + '</div><div class="split-n">avg ' + fmtNum(seasonAvg) + '</div></div>' +
     '<div class="split-row"><div class="split-label">Last 4 games <span class="trend ' + trendClass + '">' + trendLabel + '</span></div><div class="split-bar-track"><div class="split-bar-fill" style="width:' + (l4Hr.rate * 100).toFixed(0) + '%; background:' + barColor(l4Hr.rate) + '"></div></div><div class="split-rate">' + fmtPct(l4Hr.rate) + '</div><div class="split-n">avg ' + fmtNum(l4Avg) + '</div></div>';
 
