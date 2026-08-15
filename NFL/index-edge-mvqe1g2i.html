@@ -204,6 +204,20 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: v
 .q1-row { display: grid; grid-template-columns: 150px 60px 1fr 60px; gap: 12px; align-items: center; padding: 10px 12px; background: var(--bg-elevated); border-radius: 6px; font-size: var(--font-sm); margin-bottom: 6px; border: 1px solid var(--border); }
 .q1-bucket { color: var(--text-secondary); font-family: var(--font-mono); font-size: 11px; }
 .q1-games { color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em; }
+
+/* Conditional matrix table */
+.cm-table { width: 100%; border-collapse: separate; border-spacing: 0; font-family: var(--font-mono); font-size: 12px; }
+.cm-table th { text-align: right; padding: 8px 10px; color: var(--text-muted); font-weight: 500; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+.cm-table th:first-child, .cm-table th:nth-child(2) { text-align: left; }
+.cm-table td { padding: 10px; text-align: right; border-bottom: 1px solid var(--border); }
+.cm-table td:first-child { text-align: left; color: var(--text-primary); font-weight: 600; font-family: var(--font-mono); font-size: 11px; }
+.cm-table td:nth-child(2) { text-align: left; color: var(--text-muted); font-size: 10px; }
+.cm-table tbody tr:hover { background: var(--bg-elevated); }
+.cm-cell { display: inline-block; padding: 4px 10px; border-radius: 4px; font-weight: 700; min-width: 42px; text-align: center; font-size: 12px; }
+.cm-cell.edge { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
+.cm-cell.neutral { background: rgba(243, 156, 31, 0.12); color: #f39c1f; }
+.cm-cell.fade { background: rgba(248, 113, 113, 0.12); color: #f87171; }
+.cm-cell.empty { background: var(--bg-elevated); color: var(--text-muted); font-weight: 400; }
 .hidden { display: none !important; }
 
 /* ═══ LOCKED PANEL STYLING ═══ */
@@ -833,71 +847,85 @@ function renderAllPanels() {
   if (h1PanelEl) renderPacePanel(h1PanelEl, filtered, line, 'h1');
 }
 
+// Cascading thresholds — starts at 0, cumulative (X+ means "at least X")
+// H1 uses roughly 2x cutoffs since it accumulates through 2 quarters
+const PACE_THRESHOLDS = {
+  q1: {
+    passing_yards:    [0, 20, 40, 60, 100],
+    passing_cmp:      [0, 2, 4, 6, 10],
+    rushing_yards:    [0, 5, 15, 30, 50],
+    receiving_yards:  [0, 10, 25, 45, 70],
+    receiving_rec:    [0, 1, 2, 3, 5]
+  },
+  h1: {
+    passing_yards:    [0, 40, 80, 130, 200],
+    passing_cmp:      [0, 4, 8, 12, 18],
+    rushing_yards:    [0, 10, 30, 55, 90],
+    receiving_yards:  [0, 20, 45, 80, 120],
+    receiving_rec:    [0, 2, 4, 6, 8]
+  }
+};
+
 function renderPacePanel(container, games, line, period) {
   // period = 'q1' or 'h1'
   const isReceptions = currentStatField === 'rec';
-  const paceField = isReceptions ? (period + '_rec') : (period + '_yds');
-  const label = period.toUpperCase();
+  const isCompletions = currentStatField === 'cmp';
+  const paceField = isReceptions ? (period + '_rec') : (isCompletions ? (period + '_cmp') : (period + '_yds'));
+  const periodLabel = period.toUpperCase();
 
-  // Bucket thresholds are the same for Q1 and H1 by category, but H1 uses higher cutoffs
-  // since it's cumulative through 2 quarters (roughly 2x Q1)
-  const buckets = {};
-  games.forEach(function(g) {
-    const v = g[paceField] || 0;
-    let bucket;
-    if (isReceptions) {
-      if (period === 'q1') {
-        if (v === 0) bucket = 'Q1 0 rec'; else if (v === 1) bucket = 'Q1 1 rec'; else if (v === 2) bucket = 'Q1 2 rec'; else bucket = 'Q1 3+ rec';
-      } else {
-        if (v === 0) bucket = 'H1 0 rec'; else if (v <= 2) bucket = 'H1 1-2 rec'; else if (v <= 4) bucket = 'H1 3-4 rec'; else bucket = 'H1 5+ rec';
-      }
-    } else if (currentCategory === 'passing') {
-      if (period === 'q1') {
-        if (v < 40) bucket = 'Q1 under 40 yds'; else if (v < 70) bucket = 'Q1 40-69 yds'; else if (v < 100) bucket = 'Q1 70-99 yds'; else bucket = 'Q1 100+ yds';
-      } else {
-        if (v < 80) bucket = 'H1 under 80 yds'; else if (v < 140) bucket = 'H1 80-139 yds'; else if (v < 200) bucket = 'H1 140-199 yds'; else bucket = 'H1 200+ yds';
-      }
-    } else if (currentCategory === 'rushing') {
-      if (period === 'q1') {
-        if (v === 0) bucket = 'Q1 0 yds'; else if (v < 10) bucket = 'Q1 1-9 yds'; else if (v < 25) bucket = 'Q1 10-24 yds'; else if (v < 50) bucket = 'Q1 25-49 yds'; else bucket = 'Q1 50+ yds';
-      } else {
-        if (v === 0) bucket = 'H1 0 yds'; else if (v < 20) bucket = 'H1 1-19 yds'; else if (v < 50) bucket = 'H1 20-49 yds'; else if (v < 80) bucket = 'H1 50-79 yds'; else bucket = 'H1 80+ yds';
-      }
-    } else {
-      // receiving yards
-      if (period === 'q1') {
-        if (v === 0) bucket = 'Q1 0 yds'; else if (v < 25) bucket = 'Q1 1-24 yds'; else if (v < 50) bucket = 'Q1 25-49 yds'; else bucket = 'Q1 50+ yds';
-      } else {
-        if (v === 0) bucket = 'H1 0 yds'; else if (v < 40) bucket = 'H1 1-39 yds'; else if (v < 75) bucket = 'H1 40-74 yds'; else bucket = 'H1 75+ yds';
-      }
-    }
-    if (!buckets[bucket]) buckets[bucket] = []; buckets[bucket].push(g);
+  // Determine threshold key
+  let thresholdKey;
+  if (isReceptions) thresholdKey = 'receiving_rec';
+  else if (isCompletions) thresholdKey = 'passing_cmp';
+  else if (currentCategory === 'passing') thresholdKey = 'passing_yards';
+  else if (currentCategory === 'rushing') thresholdKey = 'rushing_yards';
+  else thresholdKey = 'receiving_yards';
+
+  const thresholds = PACE_THRESHOLDS[period][thresholdKey];
+  const unit = (isReceptions || isCompletions) ? '' : ' yds';
+
+  // Build column headers around current line
+  const lineCfg = LINE_CONFIG[currentStatField];
+  const cols = [];
+  for (let i = -2; i <= 2; i++) {
+    const l = line + i * lineCfg.step;
+    if (l >= 0.5) cols.push(l);
+  }
+
+  // Build matrix rows — each threshold cascades (games with pace >= threshold)
+  const rows = thresholds.map(function(t) {
+    const qualifyingGames = games.filter(function(g) { return (g[paceField] || 0) >= t; });
+    const cells = cols.map(function(l) {
+      const hr = computeHitRate(qualifyingGames, currentStatField, l);
+      return { line: l, rate: hr.rate, n: hr.n };
+    });
+    return { threshold: t, games: qualifyingGames.length, cells: cells };
   });
 
-  const orders = {
-    'q1': {
-      'passing': ['Q1 under 40 yds', 'Q1 40-69 yds', 'Q1 70-99 yds', 'Q1 100+ yds'],
-      'rushing': ['Q1 0 yds', 'Q1 1-9 yds', 'Q1 10-24 yds', 'Q1 25-49 yds', 'Q1 50+ yds'],
-      'receiving_yds': ['Q1 0 yds', 'Q1 1-24 yds', 'Q1 25-49 yds', 'Q1 50+ yds'],
-      'receiving_rec': ['Q1 0 rec', 'Q1 1 rec', 'Q1 2 rec', 'Q1 3+ rec']
-    },
-    'h1': {
-      'passing': ['H1 under 80 yds', 'H1 80-139 yds', 'H1 140-199 yds', 'H1 200+ yds'],
-      'rushing': ['H1 0 yds', 'H1 1-19 yds', 'H1 20-49 yds', 'H1 50-79 yds', 'H1 80+ yds'],
-      'receiving_yds': ['H1 0 yds', 'H1 1-39 yds', 'H1 40-74 yds', 'H1 75+ yds'],
-      'receiving_rec': ['H1 0 rec', 'H1 1-2 rec', 'H1 3-4 rec', 'H1 5+ rec']
-    }
-  };
-  const key = isReceptions ? 'receiving_rec' : (currentCategory === 'receiving' ? 'receiving_yds' : currentCategory);
-  const order = orders[period][key];
+  let html = '<table class="cm-table"><thead><tr>';
+  html += '<th>' + periodLabel + (isReceptions ? ' rec' : (isCompletions ? ' cmp' : ' pace')) + '</th>';
+  html += '<th>Games</th>';
+  cols.forEach(function(l) { html += '<th>O ' + l.toFixed(1) + '</th>'; });
+  html += '</tr></thead><tbody>';
 
-  container.innerHTML = order.map(function(bucket) {
-    if (!buckets[bucket]) return '<div class="q1-row"><div class="q1-bucket">' + bucket + '</div><div class="q1-games">0 gm</div><div style="color: var(--text-muted); font-size: 12px;">No data</div><div></div></div>';
-    const hr = computeHitRate(buckets[bucket], currentStatField, line);
-    const pct = (hr.rate * 100).toFixed(0);
-    const opacity = hr.n < 3 ? ' style="opacity: 0.55"' : '';
-    return '<div class="q1-row"' + opacity + '><div class="q1-bucket">' + bucket + '</div><div class="q1-games">' + hr.n + ' gm</div><div class="split-bar-track"><div class="split-bar-fill" style="width:' + pct + '%; background:' + barColor(hr.rate) + '"></div></div><div class="split-rate">' + pct + '%</div></div>';
-  }).join('');
+  rows.forEach(function(row) {
+    const opacity = row.games < 3 ? ' style="opacity: 0.55"' : '';
+    html += '<tr' + opacity + '>';
+    html += '<td><strong>' + row.threshold + '+</strong>' + unit + '</td>';
+    html += '<td class="cm-games">' + row.games + '</td>';
+    row.cells.forEach(function(c) {
+      if (c.n === 0) {
+        html += '<td><span class="cm-cell empty">—</span></td>';
+      } else {
+        const pct = (c.rate * 100).toFixed(0);
+        html += '<td><span class="cm-cell ' + verdictClass(c.rate) + '">' + pct + '%</span></td>';
+      }
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
 }
 
 function runQuickCheck() {
