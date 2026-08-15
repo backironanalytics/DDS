@@ -410,6 +410,12 @@ const DEFINITIONS = {
     body: 'The live betting edge. Shows how a player\'s Q1 output predicts the full-game hit rate.<br><br>' +
       'Rows represent Q1 pace buckets (e.g. "40-69 passing yards"). The hit rate column shows how often the player finished OVER the current line when they hit that Q1 pace historically.<br><br>' +
       'Use during a live game: when a player crosses a Q1 threshold, check the corresponding row for the historical over-rate on the full-game line.'
+  },
+  h1: {
+    title: 'Halftime Pace → Full Game',
+    body: 'The highest-value live betting moment in the NFL. Halftime is when sportsbooks post adjusted 2H lines and props re-open.<br><br>' +
+      'Rows represent halftime pace buckets. The hit rate column shows how often the player finished OVER the current line when they hit that halftime pace historically.<br><br>' +
+      'H1 pace is more predictive than Q1 pace — only two quarters remain, and coach adjustments have already been made. Watch this panel at halftime to find your best live spots.'
   }
 };
 
@@ -652,6 +658,7 @@ function renderStatContent() {
   const seasonAvg = averageValue(catGames, currentStatField);
   const initLine = seasonAvg ? Math.round(seasonAvg / lineCfg.step) * lineCfg.step : (lineCfg.min + lineCfg.max) / 2;
   const showQ1 = FEATURES.q1 && ['passing', 'rushing', 'receiving'].indexOf(currentCategory) >= 0 && ['yards', 'cmp', 'rec'].indexOf(currentStatField) >= 0;
+  const showH1 = showQ1;  // H1 uses the same trigger conditions as Q1
 
   const html = '<div class="stat-selector-row"><div class="control-group"><label class="micro-label">Prop stat</label><select id="statSelect">' + fields.map(function(f) { return '<option value="' + f.field + '"' + (f.field === currentStatField ? ' selected' : '') + '>' + f.label + '</option>'; }).join('') + '</select></div></div>' +
     '<div id="filterBar"></div>' +
@@ -660,7 +667,8 @@ function renderStatContent() {
     '<div class="panel"><div class="panel-header"><div class="panel-title">Home vs away</div></div><div id="homeAwayPanel"></div></div>' +
     (FEATURES.weather ? '<div class="panel"><div class="panel-header"><div class="panel-title">Weather conditions ' + infoIcon('weather') + '</div></div><div id="weatherPanel"></div></div>' : '') +
     (FEATURES.opponent ? '<div class="panel"><div class="panel-header"><div class="panel-title">Opponent strength ' + infoIcon('opp_pass') + '</div></div><div id="opponentPanel"></div></div>' : '') +
-    (showQ1 ? '<div class="panel"><div class="panel-header"><div class="panel-title">Q1 pace → full game outcome ' + infoIcon('q1') + '</div><div class="panel-sub">Live betting edge</div></div><div id="q1Panel"></div></div>' : '');
+    (showQ1 ? '<div class="panel"><div class="panel-header"><div class="panel-title">Q1 pace → full game outcome ' + infoIcon('q1') + '</div><div class="panel-sub">Live betting edge</div></div><div id="q1Panel"></div></div>' : '') +
+    (showH1 ? '<div class="panel"><div class="panel-header"><div class="panel-title">Halftime pace → full game outcome ' + infoIcon('h1') + '</div><div class="panel-sub">Live halftime edge</div></div><div id="h1Panel"></div></div>' : '');
 
   document.getElementById('statContent').innerHTML = html;
   document.getElementById('statSelect').addEventListener('change', function(e) { setStatField(e.target.value); });
@@ -780,7 +788,7 @@ function renderAllPanels() {
   if (subEl) subEl.textContent = filterCount > 0 ? filtered.length + ' of ' + catGames.length + ' games' : catGames.length + ' games';
 
   if (filtered.length === 0) {
-    ['recentFormPanel', 'homeAwayPanel', 'weatherPanel', 'opponentPanel', 'q1Panel'].forEach(function(id) { const el = document.getElementById(id); if (el) el.innerHTML = '<div class="empty-panel">NO GAMES MATCH FILTERS</div>'; });
+    ['recentFormPanel', 'homeAwayPanel', 'weatherPanel', 'opponentPanel', 'q1Panel', 'h1Panel'].forEach(function(id) { const el = document.getElementById(id); if (el) el.innerHTML = '<div class="empty-panel">NO GAMES MATCH FILTERS</div>'; });
     return;
   }
 
@@ -820,26 +828,69 @@ function renderAllPanels() {
   }
 
   const q1PanelEl = document.getElementById('q1Panel');
-  if (q1PanelEl) renderQ1Panel(q1PanelEl, filtered, line);
+  if (q1PanelEl) renderPacePanel(q1PanelEl, filtered, line, 'q1');
+  const h1PanelEl = document.getElementById('h1Panel');
+  if (h1PanelEl) renderPacePanel(h1PanelEl, filtered, line, 'h1');
 }
 
-function renderQ1Panel(container, games, line) {
-  const buckets = {};
+function renderPacePanel(container, games, line, period) {
+  // period = 'q1' or 'h1'
   const isReceptions = currentStatField === 'rec';
-  const q1Field = isReceptions ? 'q1_rec' : 'q1_yds';
+  const paceField = isReceptions ? (period + '_rec') : (period + '_yds');
+  const label = period.toUpperCase();
+
+  // Bucket thresholds are the same for Q1 and H1 by category, but H1 uses higher cutoffs
+  // since it's cumulative through 2 quarters (roughly 2x Q1)
+  const buckets = {};
   games.forEach(function(g) {
-    const q1v = g[q1Field] || 0;
+    const v = g[paceField] || 0;
     let bucket;
-    if (isReceptions) { if (q1v === 0) bucket = 'Q1 0 rec'; else if (q1v === 1) bucket = 'Q1 1 rec'; else if (q1v === 2) bucket = 'Q1 2 rec'; else bucket = 'Q1 3+ rec'; }
-    else if (currentCategory === 'passing') { if (q1v < 40) bucket = 'Q1 under 40 yds'; else if (q1v < 70) bucket = 'Q1 40-69 yds'; else if (q1v < 100) bucket = 'Q1 70-99 yds'; else bucket = 'Q1 100+ yds'; }
-    else if (currentCategory === 'rushing') { if (q1v === 0) bucket = 'Q1 0 yds'; else if (q1v < 10) bucket = 'Q1 1-9 yds'; else if (q1v < 25) bucket = 'Q1 10-24 yds'; else if (q1v < 50) bucket = 'Q1 25-49 yds'; else bucket = 'Q1 50+ yds'; }
-    else { if (q1v === 0) bucket = 'Q1 0 yds'; else if (q1v < 25) bucket = 'Q1 1-24 yds'; else if (q1v < 50) bucket = 'Q1 25-49 yds'; else bucket = 'Q1 50+ yds'; }
+    if (isReceptions) {
+      if (period === 'q1') {
+        if (v === 0) bucket = 'Q1 0 rec'; else if (v === 1) bucket = 'Q1 1 rec'; else if (v === 2) bucket = 'Q1 2 rec'; else bucket = 'Q1 3+ rec';
+      } else {
+        if (v === 0) bucket = 'H1 0 rec'; else if (v <= 2) bucket = 'H1 1-2 rec'; else if (v <= 4) bucket = 'H1 3-4 rec'; else bucket = 'H1 5+ rec';
+      }
+    } else if (currentCategory === 'passing') {
+      if (period === 'q1') {
+        if (v < 40) bucket = 'Q1 under 40 yds'; else if (v < 70) bucket = 'Q1 40-69 yds'; else if (v < 100) bucket = 'Q1 70-99 yds'; else bucket = 'Q1 100+ yds';
+      } else {
+        if (v < 80) bucket = 'H1 under 80 yds'; else if (v < 140) bucket = 'H1 80-139 yds'; else if (v < 200) bucket = 'H1 140-199 yds'; else bucket = 'H1 200+ yds';
+      }
+    } else if (currentCategory === 'rushing') {
+      if (period === 'q1') {
+        if (v === 0) bucket = 'Q1 0 yds'; else if (v < 10) bucket = 'Q1 1-9 yds'; else if (v < 25) bucket = 'Q1 10-24 yds'; else if (v < 50) bucket = 'Q1 25-49 yds'; else bucket = 'Q1 50+ yds';
+      } else {
+        if (v === 0) bucket = 'H1 0 yds'; else if (v < 20) bucket = 'H1 1-19 yds'; else if (v < 50) bucket = 'H1 20-49 yds'; else if (v < 80) bucket = 'H1 50-79 yds'; else bucket = 'H1 80+ yds';
+      }
+    } else {
+      // receiving yards
+      if (period === 'q1') {
+        if (v === 0) bucket = 'Q1 0 yds'; else if (v < 25) bucket = 'Q1 1-24 yds'; else if (v < 50) bucket = 'Q1 25-49 yds'; else bucket = 'Q1 50+ yds';
+      } else {
+        if (v === 0) bucket = 'H1 0 yds'; else if (v < 40) bucket = 'H1 1-39 yds'; else if (v < 75) bucket = 'H1 40-74 yds'; else bucket = 'H1 75+ yds';
+      }
+    }
     if (!buckets[bucket]) buckets[bucket] = []; buckets[bucket].push(g);
   });
-  const order = isReceptions ? ['Q1 0 rec', 'Q1 1 rec', 'Q1 2 rec', 'Q1 3+ rec'] :
-    currentCategory === 'passing' ? ['Q1 under 40 yds', 'Q1 40-69 yds', 'Q1 70-99 yds', 'Q1 100+ yds'] :
-    currentCategory === 'rushing' ? ['Q1 0 yds', 'Q1 1-9 yds', 'Q1 10-24 yds', 'Q1 25-49 yds', 'Q1 50+ yds'] :
-    ['Q1 0 yds', 'Q1 1-24 yds', 'Q1 25-49 yds', 'Q1 50+ yds'];
+
+  const orders = {
+    'q1': {
+      'passing': ['Q1 under 40 yds', 'Q1 40-69 yds', 'Q1 70-99 yds', 'Q1 100+ yds'],
+      'rushing': ['Q1 0 yds', 'Q1 1-9 yds', 'Q1 10-24 yds', 'Q1 25-49 yds', 'Q1 50+ yds'],
+      'receiving_yds': ['Q1 0 yds', 'Q1 1-24 yds', 'Q1 25-49 yds', 'Q1 50+ yds'],
+      'receiving_rec': ['Q1 0 rec', 'Q1 1 rec', 'Q1 2 rec', 'Q1 3+ rec']
+    },
+    'h1': {
+      'passing': ['H1 under 80 yds', 'H1 80-139 yds', 'H1 140-199 yds', 'H1 200+ yds'],
+      'rushing': ['H1 0 yds', 'H1 1-19 yds', 'H1 20-49 yds', 'H1 50-79 yds', 'H1 80+ yds'],
+      'receiving_yds': ['H1 0 yds', 'H1 1-39 yds', 'H1 40-74 yds', 'H1 75+ yds'],
+      'receiving_rec': ['H1 0 rec', 'H1 1-2 rec', 'H1 3-4 rec', 'H1 5+ rec']
+    }
+  };
+  const key = isReceptions ? 'receiving_rec' : (currentCategory === 'receiving' ? 'receiving_yds' : currentCategory);
+  const order = orders[period][key];
+
   container.innerHTML = order.map(function(bucket) {
     if (!buckets[bucket]) return '<div class="q1-row"><div class="q1-bucket">' + bucket + '</div><div class="q1-games">0 gm</div><div style="color: var(--text-muted); font-size: 12px;">No data</div><div></div></div>';
     const hr = computeHitRate(buckets[bucket], currentStatField, line);
