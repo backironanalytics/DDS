@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-density="comfortable">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PropBetIQ NFL — Edge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root[data-theme="dark"] {
+  --bg-page: #1a1440; --bg-page-alt: #201a4a; --bg-card: #241c5a; --bg-elevated: #2d2465; --bg-elevated-2: #362b78;
+  --border: #3a2f7a; --border-strong: #4d3f9a;
+  --text-primary: #f5f2e8; --text-secondary: #b0a8d0; --text-muted: #7a72a0;
+  --accent: #f39c1f; --accent-hover: #e89020; --accent-soft: rgba(243, 156, 31, 0.15);
+  --success: #4ade80; --success-bg: rgba(74, 222, 128, 0.15); --success-text: #86efac;
+  --warning: #f39c1f; --warning-bg: rgba(243, 156, 31, 0.15); --warning-text: #fbbf24;
+  --danger: #f87171; --danger-bg: rgba(248, 113, 113, 0.15); --danger-text: #fca5a5;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+:root[data-theme="light"] {
+  --bg-page: #faf7ed; --bg-page-alt: #f5f2e8; --bg-card: #ffffff; --bg-elevated: #f5f2e8; --bg-elevated-2: #ebe6d5;
+  --border: #e5dfc8; --border-strong: #d0c9a8;
+  --text-primary: #1a1440; --text-secondary: #4a4278; --text-muted: #7a72a0;
+  --accent: #d97706; --accent-hover: #b45309; --accent-soft: rgba(217, 119, 6, 0.12);
+  --success: #16a34a; --success-bg: rgba(22, 163, 74, 0.12); --success-text: #15803d;
+  --warning: #d97706; --warning-bg: rgba(217, 119, 6, 0.12); --warning-text: #b45309;
+  --danger: #dc2626; --danger-bg: rgba(220, 38, 38, 0.12); --danger-text: #b91c1c;
+  --shadow-card: 0 1px 2px rgba(26, 20, 64, 0.06);
+}
+:root[data-density="comfortable"] { --pad-card: 20px; --pad-panel: 20px; --pad-row: 12px; --gap-md: 16px; --gap-lg: 20px; --font-sm: 13px; --font-md: 14px; --font-lg: 16px; --font-metric: 24px; --font-h2: 22px; }
+:root[data-density="compact"] { --pad-card: 14px; --pad-panel: 14px; --pad-row: 8px; --gap-md: 10px; --gap-lg: 14px; --font-sm: 12px; --font-md: 13px; --font-lg: 15px; --font-metric: 20px; --font-h2: 20px; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root { --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; --font-serif: 'Fraunces', Georgia, serif; --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+body { font-family: var(--font-sans); background: var(--bg-page); color: var(--text-primary); line-height: 1.5; min-height: 100vh; transition: background-color 0.15s ease, color 0.15s ease; font-feature-settings: 'ss01', 'cv11'; }
+.top-bar { background: var(--bg-page-alt); border-bottom: 1px solid var(--border); padding: 14px 24px; }
+.top-bar-inner { max-width: 1080px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.brand { font-family: var(--font-mono); font-weight: 700; font-size: 20px; letter-spacing: -0.02em; display: flex; align-items: center; gap: 12px; }
+.brand-mark { color: var(--text-primary); }
+.brand-iq { color: var(--accent); }
+.brand-sub { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.15em; color: var(--accent); background: var(--accent-soft); padding: 4px 10px; border-radius: 4px; text-transform: uppercase; }
+.tier-badge-edge { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.15em; color: #1a1440; background: var(--accent); padding: 4px 10px; border-radius: 4px; text-transform: uppercase; font-weight: 700; }
+.top-controls { display: flex; align-items: center; gap: 8px; }
+.top-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); text-align: right; margin-right: 12px; line-height: 1.4; }
+.toggle-btn { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); padding: 6px 10px; border-radius: 6px; font-size: 11px; font-family: var(--font-mono); cursor: pointer; letter-spacing: 0.05em; transition: all 0.15s ease; text-transform: uppercase; }
+.toggle-btn:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.toggle-btn-upgrade { background: var(--accent); color: #1a1440; border-color: var(--accent); font-weight: 700; }
+.toggle-btn-upgrade:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #1a1440; }
+.toggle-group { display: inline-flex; gap: 4px; }
+.container { max-width: 1080px; margin: 0 auto; padding: 24px; }
+.loading { text-align: center; padding: 80px 20px; color: var(--text-muted); font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.05em; }
+.loading-spinner { display: inline-block; width: 28px; height: 28px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.player-selector { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: var(--pad-card); margin-bottom: var(--gap-lg); box-shadow: var(--shadow-card); }
+.micro-label { display: block; font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px; font-weight: 500; }
+.player-search-wrap { position: relative; }
+input[type="text"], select { width: 100%; background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-size: 14px; font-family: var(--font-sans); transition: border-color 0.15s ease; }
+input[type="text"]:focus, select:focus { outline: none; border-color: var(--accent); }
+.search-results { position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-elevated); border: 1px solid var(--border-strong); border-radius: 6px; margin-top: 4px; max-height: 260px; overflow-y: auto; z-index: 20; display: none; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }
+.search-results.open { display: block; }
+.search-result { padding: 10px 12px; cursor: pointer; font-size: 13px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.search-result:last-child { border-bottom: none; }
+.search-result:hover { background: var(--bg-elevated-2); }
+.search-result-team { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); letter-spacing: 0.05em; }
+.player-header { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: var(--pad-card); margin-bottom: var(--gap-lg); display: flex; align-items: center; gap: 16px; box-shadow: var(--shadow-card); }
+.player-headshot { width: 60px; height: 44px; border-radius: 6px; object-fit: cover; background: var(--bg-elevated); flex-shrink: 0; border: 1px solid var(--border); }
+.player-avatar { width: 52px; height: 52px; border-radius: 50%; background: var(--accent); color: #1a1440; align-items: center; justify-content: center; font-family: var(--font-mono); font-weight: 700; font-size: 15px; flex-shrink: 0; }
+.player-info { flex: 1; }
+.team-logo { width: 48px; height: 48px; object-fit: contain; opacity: 0.9; flex-shrink: 0; }
+.player-info h2 { font-family: var(--font-serif); font-size: var(--font-h2); font-weight: 500; letter-spacing: -0.01em; margin-bottom: 2px; line-height: 1.2; }
+.player-info .player-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); letter-spacing: 0.08em; text-transform: uppercase; }
+.quick-check { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: var(--pad-card); margin-bottom: var(--gap-lg); box-shadow: var(--shadow-card); }
+.quick-check-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.quick-check-title { font-family: var(--font-serif); font-size: 16px; font-weight: 500; letter-spacing: -0.01em; }
+.quick-check-badge { font-family: var(--font-mono); font-size: 10px; padding: 3px 8px; border-radius: 4px; background: var(--accent); color: #1a1440; letter-spacing: 0.1em; font-weight: 500; text-transform: uppercase; }
+.quick-check-controls { display: grid; grid-template-columns: 2fr 1fr auto; gap: 12px; align-items: end; }
+.check-btn { background: var(--accent); color: #1a1440; border: none; padding: 10px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; height: 42px; font-family: var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; transition: background 0.15s ease; }
+.check-btn:hover { background: var(--accent-hover); }
+.quick-result { margin-top: 14px; padding: 12px 14px; border-radius: 6px; font-size: 13px; display: none; }
+.quick-result.show { display: block; }
+.quick-result.edge, .verdict.edge { background: var(--success-bg); color: var(--success-text); border: 1px solid var(--success); }
+.quick-result.neutral, .verdict.neutral { background: var(--warning-bg); color: var(--warning-text); border: 1px solid var(--warning); }
+.quick-result.fade, .verdict.fade { background: var(--danger-bg); color: var(--danger-text); border: 1px solid var(--danger); }
+.tabs-container { background: var(--bg-page-alt); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 0 24px; margin: 0 -24px 20px; position: relative; }
+.tabs { max-width: 1080px; margin: 0 auto; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs-container::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 40px; background: linear-gradient(to right, transparent, var(--bg-page-alt)); pointer-events: none; opacity: 0; transition: opacity 0.15s ease; }
+.tabs-container.has-overflow::after { opacity: 1; }
+.tab { padding: 12px 18px; background: none; border: none; color: var(--text-secondary); font-family: var(--font-mono); font-size: 12px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; letter-spacing: 0.1em; text-transform: uppercase; transition: color 0.15s ease; }
+.tab:hover { color: var(--text-primary); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.stat-selector-row { display: flex; gap: 12px; margin-bottom: var(--gap-lg); align-items: end; }
+.stat-selector-row .control-group { flex: 1; }
+.filter-bar { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: var(--pad-panel); margin-bottom: var(--gap-lg); box-shadow: var(--shadow-card); }
+.filter-bar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.filter-bar-title { font-family: var(--font-serif); font-size: 16px; font-weight: 500; letter-spacing: -0.01em; display: flex; align-items: center; gap: 10px; }
+.filter-clear-btn { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); padding: 6px 12px; border-radius: 6px; font-family: var(--font-mono); font-size: 10px; cursor: pointer; letter-spacing: 0.08em; text-transform: uppercase; transition: all 0.15s ease; }
+.filter-clear-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.filter-clear-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.filter-group { margin-bottom: 14px; }
+.filter-group:last-child { margin-bottom: 0; }
+.filter-group-label { font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.filter-group-toggle { display: none; background: none; border: none; color: var(--text-secondary); font-family: var(--font-mono); font-size: 14px; cursor: pointer; padding: 0; margin-left: auto; }
+.filter-group.collapsed .filter-chips { display: none; }
+.filter-group.collapsed .filter-group-toggle { transform: rotate(-90deg); }
+.filter-locked-badge { font-family: var(--font-mono); font-size: 9px; padding: 2px 6px; border-radius: 3px; background: var(--bg-elevated); color: var(--accent); letter-spacing: 0.05em; }
+.filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-chip { background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); padding: 6px 12px; border-radius: 16px; font-family: var(--font-mono); font-size: 11px; cursor: pointer; letter-spacing: 0.03em; transition: all 0.15s ease; display: inline-flex; align-items: center; gap: 6px; }
+.filter-chip:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.filter-chip.active { background: var(--accent); border-color: var(--accent); color: #1a1440; font-weight: 500; }
+.filter-chip .chip-n { opacity: 0.7; font-size: 10px; }
+.filter-chip.locked { opacity: 0.4; cursor: pointer; position: relative; }
+.filter-chip.locked:hover { opacity: 0.7; border-color: var(--accent); }
+.filter-chip.locked::before { content: '🔒'; font-size: 10px; margin-right: 2px; }
+.filter-summary { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 6px; padding: 10px 12px; margin-top: 12px; font-family: var(--font-mono); font-size: 11px; color: var(--accent); letter-spacing: 0.03em; display: none; }
+.filter-summary.show { display: block; }
+.filter-summary strong { font-weight: 700; }
+.line-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: var(--pad-card); margin-bottom: var(--gap-lg); box-shadow: var(--shadow-card); }
+.line-row { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.line-row .micro-label { margin-bottom: 0; white-space: nowrap; }
+input[type="range"] { flex: 1; -webkit-appearance: none; appearance: none; height: 4px; background: var(--bg-elevated-2); border-radius: 2px; outline: none; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; background: var(--accent); border-radius: 50%; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: var(--accent); border-radius: 50%; cursor: pointer; border: none; }
+@media (pointer: coarse) {
+  input[type="range"] { height: 6px; }
+  input[type="range"]::-webkit-slider-thumb { width: 30px; height: 30px; }
+  input[type="range"]::-moz-range-thumb { width: 30px; height: 30px; }
+  .line-val { font-size: 22px; min-width: 130px; }
+}
+.line-val { font-family: var(--font-mono); font-size: 20px; font-weight: 700; min-width: 120px; text-align: right; color: var(--accent); letter-spacing: -0.02em; }
+.metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+.metric { background: var(--bg-elevated); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--border); }
+.metric-label { font-family: var(--font-mono); font-size: 9px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 6px; font-weight: 500; }
+.metric-val { font-family: var(--font-mono); font-size: var(--font-metric); font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+.metric-sub { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 4px; letter-spacing: 0.05em; }
+.verdict { padding: 12px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; }
+.verdict-icon { font-family: var(--font-mono); font-weight: 700; margin-right: 8px; font-size: 15px; }
+
+/* ── Info tooltip system ────────────────────────────────────────── */
+.info-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--bg-elevated); color: var(--text-secondary);
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  cursor: pointer; margin-left: 4px; vertical-align: middle;
+  border: 1px solid var(--border); transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.info-icon:hover, .info-icon.active { background: var(--accent); color: #1a1440; border-color: var(--accent); }
+.info-tooltip {
+  position: fixed; z-index: 9999; max-width: 280px;
+  background: var(--bg-elevated-2); color: var(--text-primary);
+  border: 1px solid var(--accent); border-radius: 6px;
+  padding: 12px 14px; font-family: var(--font-sans); font-size: 12px;
+  line-height: 1.5; box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  display: none; pointer-events: auto;
+}
+.info-tooltip.show { display: block; }
+.info-tooltip-title { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--accent); text-transform: uppercase; margin-bottom: 6px; font-weight: 700; }
+.info-tooltip-body { color: var(--text-secondary); font-size: 12px; }
+.info-tooltip-body strong { color: var(--text-primary); font-weight: 600; }
+.info-tooltip-close { position: absolute; top: 6px; right: 8px; color: var(--text-muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px; }
+.info-tooltip-close:hover { color: var(--accent); }
+.tooltip-backdrop {
+  position: fixed; inset: 0; z-index: 9998; background: transparent;
+  display: none;
+}
+.tooltip-backdrop.show { display: block; }
+
+/* ── Sparkline chart ────────────────────────────────────────────── */
+.sparkline-wrap {
+  padding: 10px 0 14px 0; margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.sparkline-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.sparkline-title { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--text-secondary); text-transform: uppercase; }
+.sparkline-legend { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 0.04em; }
+.sparkline-legend .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 3px; vertical-align: middle; }
+.sparkline-svg { width: 100%; height: 60px; overflow: visible; }
+.spark-line { stroke: var(--text-muted); stroke-width: 1; fill: none; opacity: 0.5; }
+.spark-line-ref { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 3; fill: none; opacity: 0.8; }
+.spark-dot { cursor: pointer; transition: r 0.15s ease; }
+.spark-dot:hover { r: 5; }
+.spark-dot-over { fill: var(--success); }
+.spark-dot-under { fill: var(--danger); }
+.spark-dot-tie { fill: var(--warning); }
+.spark-tooltip { position: fixed; z-index: 9997; background: var(--bg-elevated-2); border: 1px solid var(--accent); border-radius: 4px; padding: 6px 10px; font-family: var(--font-mono); font-size: 11px; color: var(--text-primary); pointer-events: none; display: none; box-shadow: 0 3px 12px rgba(0,0,0,0.4); }
+.spark-tooltip.show { display: block; }
+.panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: var(--pad-panel); margin-bottom: var(--gap-md); box-shadow: var(--shadow-card); }
+.panel-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.panel-title { font-family: var(--font-serif); font-size: 16px; font-weight: 500; letter-spacing: -0.01em; }
+.panel-sub { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; }
+.split-row { display: grid; grid-template-columns: 150px 1fr 60px 70px; gap: 14px; align-items: center; padding: var(--pad-row) 0; border-bottom: 1px solid var(--border); font-size: var(--font-sm); }
+.split-row:last-child { border-bottom: none; }
+.split-label { color: var(--text-secondary); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.03em; }
+.split-bar-track { background: var(--bg-elevated); height: 8px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+.split-bar-fill { height: 100%; border-radius: 4px; transition: width 0.2s; }
+.split-rate { font-family: var(--font-mono); font-weight: 700; text-align: right; font-size: 13px; }
+.split-n { color: var(--text-muted); text-align: right; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em; }
+.trend { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; font-family: var(--font-mono); font-size: 10px; font-weight: 500; margin-left: 8px; letter-spacing: 0.05em; text-transform: uppercase; }
+.trend.heating { background: var(--success-bg); color: var(--success-text); }
+.trend.cooling { background: var(--danger-bg); color: var(--danger-text); }
+.trend.stable { background: var(--bg-elevated-2); color: var(--text-secondary); }
+.q1-row { display: grid; grid-template-columns: 150px 60px 1fr 60px; gap: 12px; align-items: center; padding: 10px 12px; background: var(--bg-elevated); border-radius: 6px; font-size: var(--font-sm); margin-bottom: 6px; border: 1px solid var(--border); }
+.q1-bucket { color: var(--text-secondary); font-family: var(--font-mono); font-size: 11px; }
+.q1-games { color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em; }
+
+/* Conditional matrix table */
+.cm-table { width: 100%; border-collapse: separate; border-spacing: 0; font-family: var(--font-mono); font-size: 12px; }
+.cm-table th { text-align: right; padding: 8px 10px; color: var(--text-muted); font-weight: 500; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+.cm-table th:first-child, .cm-table th:nth-child(2) { text-align: left; }
+.cm-table td { padding: 10px; text-align: right; border-bottom: 1px solid var(--border); }
+.cm-table td:first-child { text-align: left; color: var(--text-primary); font-weight: 600; font-family: var(--font-mono); font-size: 11px; }
+.cm-table td:nth-child(2) { text-align: left; color: var(--text-muted); font-size: 10px; }
+.cm-table tbody tr:hover { background: var(--bg-elevated); }
+.cm-cell { display: inline-block; padding: 4px 10px; border-radius: 4px; font-weight: 700; min-width: 42px; text-align: center; font-size: 12px; }
+.cm-cell.edge { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
+.cm-cell.neutral { background: rgba(243, 156, 31, 0.12); color: #f39c1f; }
+.cm-cell.fade { background: rgba(248, 113, 113, 0.12); color: #f87171; }
+.cm-cell.empty { background: var(--bg-elevated); color: var(--text-muted); font-weight: 400; }
+.hidden { display: none !important; }
+
+/* ═══ LOCKED PANEL STYLING ═══ */
+.locked-panel { position: relative; overflow: hidden; }
+.locked-panel-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.locked-panel-title { font-family: var(--font-serif); font-size: 16px; font-weight: 500; letter-spacing: -0.01em; display: flex; align-items: center; gap: 10px; }
+.lock-badge { font-family: var(--font-mono); font-size: 10px; padding: 3px 8px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+.locked-content-wrap { position: relative; }
+.locked-content-blur { filter: blur(4px); opacity: 0.55; user-select: none; pointer-events: none; }
+.locked-overlay {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 20px;
+  background: linear-gradient(180deg, rgba(36, 28, 90, 0.5) 0%, rgba(36, 28, 90, 0.92) 60%);
+  border-radius: 6px;
+}
+.locked-icon { font-size: 28px; margin-bottom: 12px; opacity: 0.9; }
+.locked-heading { font-family: var(--font-serif); font-size: 17px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; letter-spacing: -0.01em; }
+.locked-desc { font-family: var(--font-sans); font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; max-width: 400px; line-height: 1.5; }
+.locked-desc strong { color: var(--accent); font-weight: 600; }
+.upgrade-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--accent); color: #1a1440;
+  border: none; padding: 10px 20px; border-radius: 6px;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  text-decoration: none; cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.upgrade-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
+.upgrade-btn::after { content: '→'; margin-left: 2px; }
+
+/* Big upgrade banner at top */
+.upgrade-banner {
+  background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-elevated-2) 100%);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: var(--gap-lg);
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  box-shadow: 0 0 30px rgba(243, 156, 31, 0.08);
+}
+.upgrade-banner-content { display: flex; align-items: center; gap: 14px; }
+.upgrade-banner-icon { font-size: 22px; }
+.upgrade-banner-text { font-family: var(--font-sans); font-size: 13px; color: var(--text-primary); line-height: 1.4; }
+.upgrade-banner-text strong { color: var(--accent); font-weight: 700; }
+
+.empty-panel { text-align: center; padding: 24px; color: var(--text-muted); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.05em; background: var(--bg-elevated); border-radius: 6px; border: 1px dashed var(--border); }
+
+@media (max-width: 720px) {
+  .container { padding: 16px; }
+  .top-bar { padding: 12px 16px; }
+  .brand { font-size: 17px; }
+  .brand-sub, .tier-badge-edge { display: none; }
+  .top-meta { display: none; }
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .quick-check-controls { grid-template-columns: 1fr; }
+  .check-btn { width: 100%; }
+  .split-row { grid-template-columns: 100px 1fr 50px; gap: 10px; }
+  .split-n { display: none; }
+  .filter-group-toggle { display: block; }
+  .filter-group-label { cursor: pointer; padding: 4px 0; margin-bottom: 6px; }
+  .filter-chip { padding: 8px 14px; font-size: 12px; }
+  .tab { padding: 12px 14px; }
+  .upgrade-banner { flex-direction: column; align-items: stretch; gap: 14px; padding: 14px; }
+  .upgrade-banner .upgrade-btn { width: 100%; justify-content: center; padding: 12px 20px; font-size: 13px; }
+  .locked-panel .locked-content-blur { min-height: 140px; max-height: 180px; overflow: hidden; }
+  .locked-overlay { padding: 12px; }
+  .locked-icon { font-size: 22px; margin-bottom: 6px; }
+  .locked-heading { font-size: 15px; }
+  .locked-desc { font-size: 12px; margin-bottom: 12px; }
+  .upgrade-btn { padding: 10px 16px; font-size: 11px; }
+}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="top-bar-inner">
+    <div class="brand">
+      <span><span class="brand-mark">PropBet</span><span class="brand-iq">IQ</span></span>
+      <span class="brand-sub">NFL</span>
+      <span class="tier-badge-edge">Edge</span>
+    </div>
+    <div class="top-controls">
+      <div class="top-meta" id="metaBox">Loading…</div>
+      <div class="toggle-group">
+        <button class="toggle-btn" id="themeToggle" title="Toggle theme">Dark</button>
+        <button class="toggle-btn" id="densityToggle" title="Toggle density">Comfy</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+<div id="loading" class="loading"><div class="loading-spinner"></div><div>LOADING PLAYER DATA</div></div>
+<div id="app" class="hidden">
+  <div class="player-selector">
+    <label class="micro-label">Search player</label>
+    <div class="player-search-wrap">
+      <input type="text" id="playerSearch" placeholder="Type player name or team code…" autocomplete="off">
+      <div class="search-results" id="searchResults"></div>
+    </div>
+  </div>
+  <div id="playerContent" class="hidden">
+    <div class="player-header" id="playerHeader"></div>
+
+    <div class="quick-check">
+      <div class="quick-check-header">
+        <div class="quick-check-title">Quick line check</div>
+        <div class="quick-check-badge">Fast</div>
+      </div>
+      <div class="quick-check-controls">
+        <div class="control-group"><label class="micro-label">Stat</label><select id="quickStatSelect"></select></div>
+        <div class="control-group"><label class="micro-label">Line</label><input type="text" id="quickLineInput" placeholder="e.g. 274.5" inputmode="decimal"></div>
+        <button class="check-btn" id="quickCheckBtn">Check</button>
+      </div>
+      <div id="quickResult" class="quick-result"></div>
+    </div>
+    <div class="tabs-container"><div class="tabs" id="categoryTabs"></div></div>
+    <div id="statContent"></div>
+  </div>
+</div>
+</div>
+
+<script>
+const TIER = 'edge';
+const FEATURES = { weather: true, opponent: true, q1: true, filterWx: true, filterOpp: true };
+
+let DATA = null, currentPlayer = null, currentCategory = 'passing', currentStatField = 'yards';
+let activeFilters = { loc: null, wx: null, opp: null };
+
+const CATEGORY_LABELS = { passing: 'Passing', rushing: 'Rushing', receiving: 'Receiving', sacks: 'Sacks', tackles: 'Tackles', interceptions: 'Def INTs' };
+const STAT_FIELDS = {
+  passing: [{ field: 'yards', label: 'Passing yards', unit: 'yds' }, { field: 'cmp', label: 'Completions', unit: 'cmp' }, { field: 'att', label: 'Attempts', unit: 'att' }, { field: 'td', label: 'Touchdowns', unit: 'TD' }, { field: 'int', label: 'Interceptions', unit: 'INT' }],
+  rushing: [{ field: 'yards', label: 'Rushing yards', unit: 'yds' }, { field: 'carries', label: 'Carries', unit: 'car' }],
+  receiving: [{ field: 'yards', label: 'Receiving yards', unit: 'yds' }, { field: 'rec', label: 'Receptions', unit: 'rec' }, { field: 'tgt', label: 'Targets', unit: 'tgt' }],
+  sacks: [{ field: 'sacks', label: 'Sacks', unit: 'sacks' }],
+  tackles: [{ field: 'tkl', label: 'Total tackles', unit: 'tkl' }, { field: 'solo', label: 'Solo tackles', unit: 'solo' }, { field: 'ast', label: 'Assist tackles', unit: 'ast' }],
+  interceptions: [{ field: 'ints', label: 'Interceptions', unit: 'INT' }]
+};
+const LINE_CONFIG = {
+  yards: { min: 0, max: 400, step: 5, defaultOffset: 0.5 }, cmp: { min: 0, max: 45, step: 1, defaultOffset: 0.5 }, att: { min: 0, max: 55, step: 1, defaultOffset: 0.5 },
+  td: { min: 0, max: 5, step: 1, defaultOffset: 0.5 }, int: { min: 0, max: 4, step: 1, defaultOffset: 0.5 }, carries: { min: 0, max: 30, step: 1, defaultOffset: 0.5 },
+  rec: { min: 0, max: 15, step: 1, defaultOffset: 0.5 }, tgt: { min: 0, max: 18, step: 1, defaultOffset: 0.5 }, sacks: { min: 0, max: 4, step: 0.5, defaultOffset: 0 },
+  tkl: { min: 0, max: 15, step: 1, defaultOffset: 0.5 }, solo: { min: 0, max: 12, step: 1, defaultOffset: 0.5 }, ast: { min: 0, max: 10, step: 1, defaultOffset: 0.5 }, ints: { min: 0, max: 3, step: 1, defaultOffset: 0.5 }
+};
+const LOCATION_LABELS = { home: 'Home', away: 'Away' };
+const NFL_TEAM_ABBRS = {
+  'ARI': 'ari', 'ATL': 'atl', 'BAL': 'bal', 'BUF': 'buf', 'CAR': 'car',
+  'CHI': 'chi', 'CIN': 'cin', 'CLE': 'cle', 'DAL': 'dal', 'DEN': 'den',
+  'DET': 'det', 'GB': 'gb',   'HOU': 'hou', 'IND': 'ind', 'JAX': 'jax',
+  'KC':  'kc',  'LA':  'lar', 'LAR': 'lar', 'LAC': 'lac', 'LV':  'lv',
+  'MIA': 'mia', 'MIN': 'min', 'NE':  'ne',  'NO':  'no',  'NYG': 'nyg',
+  'NYJ': 'nyj', 'PHI': 'phi', 'PIT': 'pit', 'SEA': 'sea', 'SF':  'sf',
+  'TB':  'tb',  'TEN': 'ten', 'WAS': 'wsh'
+};
+const WEATHER_LABELS = { dome: 'Dome', clear: 'Clear', windy: 'Windy', heavy_wind: 'Heavy wind', rain: 'Rain', snow: 'Snow', cold_extreme: 'Cold extreme' };
+const OPP_LABELS = { top_pass_def: 'Top pass D', mid_pass_def: 'Mid pass D', bottom_pass_def: 'Bottom pass D', top_run_def: 'Top run D', mid_run_def: 'Mid run D', bottom_run_def: 'Bottom run D', high_volume_off: 'High-vol off', mid_volume_off: 'Mid-vol off', low_volume_off: 'Low-vol off' };
+
+const DEFINITIONS = {
+  weather: {
+    title: 'Weather Categories',
+    body: 'Every NFL game is classified into one bucket based on stadium and forecast at kickoff:<br><br>' +
+      '<strong>Dome:</strong> indoor stadium (Vegas, Detroit, Atlanta, etc.). Ignores weather entirely.<br>' +
+      '<strong>Clear:</strong> outdoor game, dry conditions, wind &lt;10 mph.<br>' +
+      '<strong>Windy:</strong> wind 10-19 mph. Enough to affect deep passing.<br>' +
+      '<strong>Heavy wind:</strong> wind ≥20 mph. Major impact on passing/kicking.<br>' +
+      '<strong>Rain:</strong> active precipitation during game.<br>' +
+      '<strong>Snow:</strong> snowfall during game.<br>' +
+      '<strong>Cold extreme:</strong> game temperature ≤25°F. Affects grip and stamina.'
+  },
+  opp_pass: {
+    title: 'Opponent Strength Tiers',
+    body: 'Every opposing team is ranked 1-32 across three dimensions. Games in your player\'s log get tagged with the tier of that week\'s opponent.<br><br>' +
+      '<strong>Pass defense</strong> (yards allowed per game):<br>' +
+      '&nbsp;&nbsp;• <strong>Top pass D</strong> — rank 1-10 (best)<br>' +
+      '&nbsp;&nbsp;• <strong>Mid pass D</strong> — rank 11-22<br>' +
+      '&nbsp;&nbsp;• <strong>Bottom pass D</strong> — rank 23-32 (worst — most exploitable)<br><br>' +
+      '<strong>Run defense</strong> (yards allowed per game):<br>' +
+      '&nbsp;&nbsp;• <strong>Top run D</strong> — rank 1-10<br>' +
+      '&nbsp;&nbsp;• <strong>Mid run D</strong> — rank 11-22<br>' +
+      '&nbsp;&nbsp;• <strong>Bottom run D</strong> — rank 23-32<br><br>' +
+      '<strong>Offensive volume</strong> (plays run per game — matters for defensive props):<br>' +
+      '&nbsp;&nbsp;• <strong>High-vol off</strong> — rank 1-10 (fastest, most plays)<br>' +
+      '&nbsp;&nbsp;• <strong>Mid-vol off</strong> — rank 11-22<br>' +
+      '&nbsp;&nbsp;• <strong>Low-vol off</strong> — rank 23-32 (slowest, ball-control)<br><br>' +
+      'Rankings recalculate weekly during the season.'
+  },
+  verdict: {
+    title: 'Verdict Thresholds',
+    body: 'Based on the hit rate for your current filter set:<br><br>' +
+      '<strong>Over edge (green):</strong> hit rate ≥65%. Historical data strongly favors the over.<br>' +
+      '<strong>Toss-up (yellow):</strong> hit rate 45-64%. Coin flip — no meaningful edge.<br>' +
+      '<strong>Under lean (red):</strong> hit rate &lt;45%. Historical data favors the under.<br><br>' +
+      'Sample size matters — verdicts on 3+ games only.'
+  },
+  filters: {
+    title: 'How Filters Work',
+    body: 'Filters narrow the game set used for hit rate calculations. Stack multiple filters (e.g. Home + Heavy wind + Bottom pass D) to see how a specific matchup type has played out this season. <strong>Smaller sample sizes = less reliable percentages.</strong> Watch the games count — under 3 games and the number is noisy.'
+  },
+  q1: {
+    title: 'Q1 Pace → Full Game',
+    body: 'The live betting edge. Shows how a player\'s Q1 output predicts the full-game hit rate.<br><br>' +
+      'Rows represent Q1 pace buckets (e.g. "40-69 passing yards"). The hit rate column shows how often the player finished OVER the current line when they hit that Q1 pace historically.<br><br>' +
+      'Use during a live game: when a player crosses a Q1 threshold, check the corresponding row for the historical over-rate on the full-game line.'
+  },
+  h1: {
+    title: 'Halftime Pace → Full Game',
+    body: 'The highest-value live betting moment in the NFL. Halftime is when sportsbooks post adjusted 2H lines and props re-open.<br><br>' +
+      'Rows represent halftime pace buckets. The hit rate column shows how often the player finished OVER the current line when they hit that halftime pace historically.<br><br>' +
+      'H1 pace is more predictive than Q1 pace — only two quarters remain, and coach adjustments have already been made. Watch this panel at halftime to find your best live spots.'
+  }
+};
+
+let activeTooltip = null;
+function showTooltip(key, evt) {
+  const def = DEFINITIONS[key];
+  if (!def) return;
+  const backdrop = document.getElementById('tooltipBackdrop') || createTooltipInfrastructure();
+  const tip = document.getElementById('activeTooltip');
+  tip.innerHTML = '<span class="info-tooltip-close" onclick="hideTooltip()">×</span>' +
+    '<div class="info-tooltip-title">' + def.title + '</div>' +
+    '<div class="info-tooltip-body">' + def.body + '</div>';
+  tip.classList.add('show');
+  backdrop.classList.add('show');
+
+  const x = evt.clientX || (evt.touches && evt.touches[0].clientX) || 100;
+  const y = evt.clientY || (evt.touches && evt.touches[0].clientY) || 100;
+  tip.style.visibility = 'hidden';
+  tip.style.left = '0'; tip.style.top = '0';
+  const rect = tip.getBoundingClientRect();
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let left = x - rect.width / 2, top = y + 16;
+  if (left < 10) left = 10;
+  if (left + rect.width > vw - 10) left = vw - rect.width - 10;
+  if (top + rect.height > vh - 10) top = y - rect.height - 12;
+  tip.style.left = left + 'px'; tip.style.top = top + 'px';
+  tip.style.visibility = 'visible';
+  activeTooltip = key;
+}
+function hideTooltip() {
+  const tip = document.getElementById('activeTooltip');
+  const backdrop = document.getElementById('tooltipBackdrop');
+  if (tip) tip.classList.remove('show');
+  if (backdrop) backdrop.classList.remove('show');
+  activeTooltip = null;
+}
+function createTooltipInfrastructure() {
+  const backdrop = document.createElement('div');
+  backdrop.id = 'tooltipBackdrop';
+  backdrop.className = 'tooltip-backdrop';
+  backdrop.addEventListener('click', hideTooltip);
+  document.body.appendChild(backdrop);
+  const tip = document.createElement('div');
+  tip.id = 'activeTooltip';
+  tip.className = 'info-tooltip';
+  document.body.appendChild(tip);
+  return backdrop;
+}
+function infoIcon(key) {
+  return '<span class="info-icon" onclick="event.stopPropagation(); showTooltip(\'' + key + '\', event)">?</span>';
+}
+
+function buildSparkline(games, statField, line) {
+  if (!games || games.length === 0) return '';
+  const sorted = games.slice().sort(function(a, b) { return (a.wk || 0) - (b.wk || 0); });
+  const values = sorted.map(function(g) { return g[statField] || 0; });
+  const maxVal = Math.max.apply(null, values.concat([line]));
+  const minVal = 0;
+  const w = 300, h = 60, padL = 8, padR = 8, padT = 6, padB = 6;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  const xStep = sorted.length > 1 ? plotW / (sorted.length - 1) : 0;
+  const scaleY = function(v) { return padT + plotH - ((v - minVal) / (maxVal - minVal || 1)) * plotH; };
+  const points = sorted.map(function(g, i) {
+    const x = padL + i * xStep;
+    const y = scaleY(g[statField] || 0);
+    return { x: x, y: y, val: g[statField] || 0, wk: g.wk, opp: g.opp, loc: g.loc };
+  });
+  const pathD = points.map(function(p, i) { return (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' ');
+  const lineY = scaleY(line);
+  const overCount = values.filter(function(v) { return v > line; }).length;
+  const underCount = values.filter(function(v) { return v < line; }).length;
+  const dots = points.map(function(p) {
+    const cls = p.val > line ? 'spark-dot-over' : (p.val < line ? 'spark-dot-under' : 'spark-dot-tie');
+    const label = 'Wk ' + p.wk + (p.loc === 'away' ? ' @ ' : ' vs ') + (p.opp || '') + ' — ' + p.val.toFixed(1);
+    return '<circle class="spark-dot ' + cls + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="3" data-label="' + label + '" onmouseenter="showSparkTip(event, this)" onmouseleave="hideSparkTip()" onclick="showSparkTip(event, this)"></circle>';
+  }).join('');
+  return '<div class="sparkline-wrap">' +
+    '<div class="sparkline-header">' +
+      '<div class="sparkline-title">Game-by-game · line: ' + line.toFixed(1) + '</div>' +
+      '<div class="sparkline-legend"><span class="dot" style="background:var(--success)"></span>Over ' + overCount + ' · <span class="dot" style="background:var(--danger)"></span>Under ' + underCount + '</div>' +
+    '</div>' +
+    '<svg class="sparkline-svg" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
+      '<line class="spark-line-ref" x1="' + padL + '" y1="' + lineY.toFixed(1) + '" x2="' + (w - padR) + '" y2="' + lineY.toFixed(1) + '"></line>' +
+      '<path class="spark-line" d="' + pathD + '"></path>' + dots +
+    '</svg></div>';
+}
+function showSparkTip(evt, el) {
+  let tip = document.getElementById('sparkTooltip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'sparkTooltip'; tip.className = 'spark-tooltip';
+    document.body.appendChild(tip);
+  }
+  tip.textContent = el.dataset.label;
+  tip.classList.add('show');
+  const x = evt.clientX || (evt.touches && evt.touches[0].clientX) || 100;
+  const y = evt.clientY || (evt.touches && evt.touches[0].clientY) || 100;
+  tip.style.left = (x + 12) + 'px';
+  tip.style.top = (y - 30) + 'px';
+}
+function hideSparkTip() {
+  const tip = document.getElementById('sparkTooltip');
+  if (tip) tip.classList.remove('show');
+}
+
+function loadPreferences() {
+  const savedTheme = localStorage.getItem('propbetiq_theme') || 'dark';
+  const savedDensity = localStorage.getItem('propbetiq_density') || 'comfortable';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  document.documentElement.setAttribute('data-density', savedDensity);
+  updateToggleLabels();
+}
+function updateToggleLabels() {
+  document.getElementById('themeToggle').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? 'Dark' : 'Light';
+  document.getElementById('densityToggle').textContent = document.documentElement.getAttribute('data-density') === 'comfortable' ? 'Comfy' : 'Dense';
+}
+function setupToggles() {
+  document.getElementById('themeToggle').addEventListener('click', function() {
+    const cur = document.documentElement.getAttribute('data-theme');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('propbetiq_theme', next);
+    updateToggleLabels();
+    if (currentPlayer) renderAllPanels();
+  });
+  document.getElementById('densityToggle').addEventListener('click', function() {
+    const cur = document.documentElement.getAttribute('data-density');
+    const next = cur === 'comfortable' ? 'compact' : 'comfortable';
+    document.documentElement.setAttribute('data-density', next);
+    localStorage.setItem('propbetiq_density', next);
+    updateToggleLabels();
+  });
+}
+
+async function init() {
+  loadPreferences();
+  setupToggles();
+  try {
+    const res = await fetch('./propbetiq_nfl-mwfsapw8.json');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    DATA = await res.json();
+    document.getElementById('metaBox').innerHTML = 'SEASON ' + DATA.meta.season + '<br>' + DATA.meta.n_players + ' PLAYERS';
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    setupSearch();
+    document.getElementById('quickCheckBtn').addEventListener('click', runQuickCheck);
+  } catch (e) {
+    document.getElementById('loading').innerHTML = '<div style="color: var(--danger)">FAILED TO LOAD: ' + e.message + '</div>';
+  }
+}
+
+function setupSearch() {
+  const input = document.getElementById('playerSearch');
+  const results = document.getElementById('searchResults');
+  const allPlayers = Object.entries(DATA.players).map(function(entry) { return { id: entry[0], name: entry[1].display_name, team: entry[1].current_team, pos: entry[1].position }; }).sort(function(a, b) { return a.name.localeCompare(b.name); });
+  input.addEventListener('input', function() {
+    const q = input.value.toLowerCase().trim();
+    if (!q) { results.classList.remove('open'); return; }
+    const matches = allPlayers.filter(function(p) { return p.name.toLowerCase().indexOf(q) >= 0 || (p.team && p.team.toLowerCase().indexOf(q) >= 0); }).slice(0, 12);
+    if (matches.length === 0) results.innerHTML = '<div class="search-result" style="color: var(--text-muted); justify-content: center">No matches</div>';
+    else results.innerHTML = matches.map(function(p) { return '<div class="search-result" data-id="' + p.id + '"><span>' + p.name + '</span><span class="search-result-team">' + (p.team || '') + ' · ' + (p.pos || '') + '</span></div>'; }).join('');
+    results.classList.add('open');
+    results.querySelectorAll('.search-result[data-id]').forEach(function(el) { el.addEventListener('click', function() { selectPlayer(el.dataset.id); }); });
+  });
+  document.addEventListener('click', function(e) { if (!input.contains(e.target) && !results.contains(e.target)) results.classList.remove('open'); });
+}
+
+function selectPlayer(playerId) {
+  currentPlayer = Object.assign({ id: playerId }, DATA.players[playerId]);
+  activeFilters = { loc: null, wx: null, opp: null };
+  document.getElementById('playerSearch').value = '';
+  document.getElementById('searchResults').classList.remove('open');
+  renderPlayer();
+}
+
+function renderPlayer() {
+  document.getElementById('playerContent').classList.remove('hidden');
+  const initials = currentPlayer.display_name.split(' ').map(function(w) { return w[0]; }).slice(0, 2).join('');
+  const team = currentPlayer.current_team || '';
+  const position = currentPlayer.position || '';
+  const teamAbbr = NFL_TEAM_ABBRS[team] || team.toLowerCase();
+  const headshotUrl = currentPlayer.headshot_url || '';
+  const teamLogoUrl = teamAbbr ? 'https://a.espncdn.com/i/teamlogos/nfl/500/' + teamAbbr + '.png' : '';
+  document.getElementById('playerHeader').innerHTML =
+    (headshotUrl
+      ? '<img class="player-headshot" src="' + headshotUrl + '" alt="' + currentPlayer.display_name + '" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';"><div class="player-avatar" style="display:none;">' + initials + '</div>'
+      : '<div class="player-avatar" style="display:flex;">' + initials + '</div>') +
+    '<div class="player-info"><h2>' + currentPlayer.display_name + '</h2>' +
+    '<div class="player-meta">' + (position ? position + ' · ' : '') + (team || '—') + '</div></div>' +
+    (teamLogoUrl ? '<img class="team-logo" src="' + teamLogoUrl + '" alt="' + team + '" onerror="this.style.display=\'none\';">' : '');
+  const categories = Object.keys(CATEGORY_LABELS).filter(function(c) { return currentPlayer[c]; });
+  if (categories.length === 0) { document.getElementById('categoryTabs').innerHTML = ''; document.getElementById('statContent').innerHTML = '<div class="loading">NO STAT DATA FOR THIS PLAYER</div>'; return; }
+  if (categories.indexOf(currentCategory) === -1) currentCategory = categories[0];
+  document.getElementById('categoryTabs').innerHTML = categories.map(function(c) { return '<button class="tab ' + (c === currentCategory ? 'active' : '') + '" data-cat="' + c + '">' + CATEGORY_LABELS[c] + '</button>'; }).join('');
+  document.getElementById('categoryTabs').querySelectorAll('.tab').forEach(function(el) { el.addEventListener('click', function() { setCategory(el.dataset.cat); }); });
+  setTimeout(checkTabsOverflow, 0);
+  window.addEventListener('resize', checkTabsOverflow);
+  populateQuickStatSelect();
+  renderStatContent();
+}
+
+function populateQuickStatSelect() {
+  const options = [];
+  Object.keys(CATEGORY_LABELS).forEach(function(cat) { if (currentPlayer[cat]) STAT_FIELDS[cat].forEach(function(sf) { options.push('<option value="' + cat + '.' + sf.field + '">' + sf.label + '</option>'); }); });
+  document.getElementById('quickStatSelect').innerHTML = options.join('');
+}
+
+function setCategory(cat) { currentCategory = cat; activeFilters = { loc: null, wx: null, opp: null }; const fields = STAT_FIELDS[cat]; if (!fields.some(function(f) { return f.field === currentStatField; })) currentStatField = fields[0].field; renderPlayer(); }
+function setStatField(field) { currentStatField = field; activeFilters = { loc: null, wx: null, opp: null }; renderStatContent(); }
+
+function getFilteredGames() {
+  const catGames = currentPlayer[currentCategory] || [];
+  return catGames.filter(function(g) {
+    if (activeFilters.loc && g.loc !== activeFilters.loc) return false;
+    if (activeFilters.wx && g.wx !== activeFilters.wx) return false;
+    if (activeFilters.opp && g.opp !== activeFilters.opp) return false;
+    return true;
+  });
+}
+function toggleFilter(dim, val) {
+  activeFilters[dim] = activeFilters[dim] === val ? null : val;
+  renderFilterBar(); renderLineCard(); renderAllPanels();
+}
+function clearAllFilters() { activeFilters = { loc: null, wx: null, opp: null }; renderFilterBar(); renderLineCard(); renderAllPanels(); }
+function getActiveFilterCount() { return Object.values(activeFilters).filter(function(v) { return v !== null; }).length; }
+function computeHitRate(games, field, line) { if (!games || games.length === 0) return { rate: null, n: 0, hits: 0 }; const hits = games.filter(function(g) { return (g[field] || 0) >= line; }).length; return { rate: hits / games.length, n: games.length, hits: hits }; }
+function averageValue(games, field) { if (!games || games.length === 0) return null; return games.reduce(function(s, g) { return s + (g[field] || 0); }, 0) / games.length; }
+function medianValue(games, field) { if (!games || games.length === 0) return null; const sorted = games.map(function(g) { return g[field] || 0; }).sort(function(a, b) { return a - b; }); const mid = Math.floor(sorted.length / 2); return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2; }
+function groupBy(games, key) { const out = {}; games.forEach(function(g) { const k = g[key]; if (!k) return; if (!out[k]) out[k] = []; out[k].push(g); }); return out; }
+function last4(games) { if (!games) return []; return games.slice().sort(function(a, b) { return b.wk - a.wk; }).slice(0, 4); }
+function verdictClass(rate) { if (rate === null) return 'neutral'; if (rate >= 0.65) return 'edge'; if (rate >= 0.45) return 'neutral'; return 'fade'; }
+function barColor(rate) { const theme = document.documentElement.getAttribute('data-theme'); if (theme === 'dark') { if (rate >= 0.65) return '#4ade80'; if (rate >= 0.45) return '#f39c1f'; return '#f87171'; } else { if (rate >= 0.65) return '#16a34a'; if (rate >= 0.45) return '#d97706'; return '#dc2626'; } }
+function fmtPct(v) { return v === null ? '—' : (v * 100).toFixed(0) + '%'; }
+function fmtNum(v, d) { if (d === undefined) d = 1; return v === null ? '—' : v.toFixed(d); }
+
+function renderStatContent() {
+  const catGames = currentPlayer[currentCategory] || [];
+  const fields = STAT_FIELDS[currentCategory];
+  const lineCfg = LINE_CONFIG[currentStatField];
+  const seasonAvg = averageValue(catGames, currentStatField);
+  const initLine = seasonAvg ? Math.round(seasonAvg / lineCfg.step) * lineCfg.step : (lineCfg.min + lineCfg.max) / 2;
+  const showQ1 = FEATURES.q1 && ['passing', 'rushing', 'receiving'].indexOf(currentCategory) >= 0 && ['yards', 'cmp', 'rec'].indexOf(currentStatField) >= 0;
+  const showH1 = showQ1;  // H1 uses the same trigger conditions as Q1
+
+  const html = '<div class="stat-selector-row"><div class="control-group"><label class="micro-label">Prop stat</label><select id="statSelect">' + fields.map(function(f) { return '<option value="' + f.field + '"' + (f.field === currentStatField ? ' selected' : '') + '>' + f.label + '</option>'; }).join('') + '</select></div></div>' +
+    '<div id="filterBar"></div>' +
+    '<div class="line-card"><div class="line-row"><label class="micro-label">Line</label><input type="range" id="lineSlider" min="' + lineCfg.min + '" max="' + lineCfg.max + '" step="' + lineCfg.step + '" value="' + initLine + '"><div class="line-val" id="lineDisplay">—</div></div><div class="metrics-grid" id="metricsGrid"></div><div class="verdict" id="verdictBox"></div></div>' +
+    '<div class="panel"><div class="panel-header"><div class="panel-title">Season vs recent form</div><div class="panel-sub" id="recentFormSub">' + catGames.length + ' games</div></div><div id="recentFormPanel"></div></div>' +
+    '<div class="panel"><div class="panel-header"><div class="panel-title">Home vs away</div></div><div id="homeAwayPanel"></div></div>' +
+    (FEATURES.weather ? '<div class="panel"><div class="panel-header"><div class="panel-title">Weather conditions ' + infoIcon('weather') + '</div></div><div id="weatherPanel"></div></div>' : '') +
+    (FEATURES.opponent ? '<div class="panel"><div class="panel-header"><div class="panel-title">Opponent strength ' + infoIcon('opp_pass') + '</div></div><div id="opponentPanel"></div></div>' : '') +
+    (showQ1 ? '<div class="panel"><div class="panel-header"><div class="panel-title">Q1 pace → full game outcome ' + infoIcon('q1') + '</div><div class="panel-sub">Live betting edge</div></div><div id="q1Panel"></div></div>' : '') +
+    (showH1 ? '<div class="panel"><div class="panel-header"><div class="panel-title">Halftime pace → full game outcome ' + infoIcon('h1') + '</div><div class="panel-sub">Live halftime edge</div></div><div id="h1Panel"></div></div>' : '');
+
+  document.getElementById('statContent').innerHTML = html;
+  document.getElementById('statSelect').addEventListener('change', function(e) { setStatField(e.target.value); });
+  document.getElementById('lineSlider').addEventListener('input', function() { renderLineCard(); renderAllPanels(); });
+  renderFilterBar();
+  renderLineCard();
+  renderAllPanels();
+}
+
+
+function renderFilterBar() {
+  const bar = document.getElementById('filterBar');
+  if (!bar) return;
+  const catGames = currentPlayer[currentCategory] || [];
+  const activeCount = getActiveFilterCount();
+  const locGroups = groupBy(catGames, 'loc');
+  const wxGroups = groupBy(catGames, 'wx');
+  const oppGroups = groupBy(catGames, 'opp');
+  const wxOrder = ['dome', 'clear', 'windy', 'heavy_wind', 'rain', 'snow', 'cold_extreme'];
+  const oppOrder = Object.keys(oppGroups).sort();
+
+  const locChips = ['home', 'away'].filter(function(l) { return locGroups[l]; }).map(function(l) {
+    const active = activeFilters.loc === l ? ' active' : '';
+    return '<button class="filter-chip' + active + '" data-dim="loc" data-val="' + l + '">' + LOCATION_LABELS[l] + ' <span class="chip-n">' + locGroups[l].length + '</span></button>';
+  }).join('');
+
+  const wxChips = wxOrder.filter(function(w) { return wxGroups[w]; }).map(function(w) {
+    const active = activeFilters.wx === w ? ' active' : '';
+    return '<button class="filter-chip' + active + '" data-dim="wx" data-val="' + w + '">' + WEATHER_LABELS[w] + ' <span class="chip-n">' + wxGroups[w].length + '</span></button>';
+  }).join('');
+
+  const oppChips = oppOrder.map(function(o) {
+    const active = activeFilters.opp === o ? ' active' : '';
+    return '<button class="filter-chip' + active + '" data-dim="opp" data-val="' + o + '">' + (OPP_LABELS[o] || o) + ' <span class="chip-n">' + oppGroups[o].length + '</span></button>';
+  }).join('');
+
+  const filtered = getFilteredGames();
+  const summaryParts = [];
+  if (activeFilters.loc) summaryParts.push(LOCATION_LABELS[activeFilters.loc]);
+  if (activeFilters.wx) summaryParts.push(WEATHER_LABELS[activeFilters.wx]);
+  if (activeFilters.opp) summaryParts.push(OPP_LABELS[activeFilters.opp] || activeFilters.opp);
+  const summaryHtml = activeCount > 0 ? '<div class="filter-summary show">Showing <strong>' + filtered.length + ' of ' + catGames.length + ' games</strong> matching: <strong>' + summaryParts.join(' + ') + '</strong></div>' : '';
+
+  const isMobile = window.matchMedia('(max-width: 720px)').matches;
+  const collapsedClass = isMobile ? ' collapsed' : '';
+  bar.innerHTML = '<div class="filter-bar">' +
+    '<div class="filter-bar-header"><div class="filter-bar-title">Filters ' + infoIcon('filters') + (activeCount > 0 ? ' <span class="filter-bar-title-count">' + activeCount + ' active</span>' : '') + '</div><button class="filter-clear-btn" id="filterClearBtn"' + (activeCount === 0 ? ' disabled' : '') + '>Clear all</button></div>' +
+    '<div class="filter-group"><div class="filter-group-label">Location <button class="filter-group-toggle">▼</button></div><div class="filter-chips">' + locChips + '</div></div>' +
+    (wxChips ? '<div class="filter-group' + collapsedClass + '"><div class="filter-group-label">Weather ' + infoIcon('weather') + '<button class="filter-group-toggle">▼</button></div><div class="filter-chips">' + wxChips + '</div></div>' : '') +
+    (oppChips ? '<div class="filter-group' + collapsedClass + '"><div class="filter-group-label">Opponent ' + infoIcon('opp_pass') + '<button class="filter-group-toggle">▼</button></div><div class="filter-chips">' + oppChips + '</div></div>' : '') +
+    summaryHtml + '</div>';
+
+  bar.querySelectorAll('.filter-chip').forEach(function(chip) { chip.addEventListener('click', function(e) { e.stopPropagation(); toggleFilter(chip.dataset.dim, chip.dataset.val); }); });
+  bar.querySelectorAll('.filter-group-label').forEach(function(lbl) {
+    lbl.addEventListener('click', function() {
+      if (window.matchMedia('(max-width: 720px)').matches) {
+        lbl.parentElement.classList.toggle('collapsed');
+      }
+    });
+  });
+  document.getElementById('filterClearBtn').addEventListener('click', clearAllFilters);
+}
+
+function checkTabsOverflow() {
+  const container = document.querySelector('.tabs-container');
+  const tabs = document.getElementById('categoryTabs');
+  if (!container || !tabs) return;
+  if (tabs.scrollWidth > tabs.clientWidth) container.classList.add('has-overflow');
+  else container.classList.remove('has-overflow');
+}
+
+function renderLineCard() {
+  const slider = document.getElementById('lineSlider');
+  if (!slider) return;
+  const lineCfg = LINE_CONFIG[currentStatField];
+  const line = parseFloat(slider.value) + lineCfg.defaultOffset;
+  const statMeta = STAT_FIELDS[currentCategory].find(function(f) { return f.field === currentStatField; });
+  document.getElementById('lineDisplay').textContent = line.toFixed(1) + ' ' + statMeta.unit;
+  const games = getFilteredGames();
+  const hr = computeHitRate(games, currentStatField, line);
+  const avg = averageValue(games, currentStatField);
+  const med = medianValue(games, currentStatField);
+  const max = games.length > 0 ? Math.max.apply(null, games.map(function(g) { return g[currentStatField] || 0; })) : null;
+  const activeCount = getActiveFilterCount();
+  const filterNote = activeCount > 0 ? '<div class="metric-sub" style="color: var(--accent); margin-top: 6px;">Filtered</div>' : '';
+  document.getElementById('metricsGrid').innerHTML = '<div class="metric"><div class="metric-label">Hit rate</div><div class="metric-val">' + fmtPct(hr.rate) + '</div><div class="metric-sub">' + hr.hits + '/' + hr.n + ' games</div>' + filterNote + '</div>' +
+    '<div class="metric"><div class="metric-label">Avg</div><div class="metric-val">' + fmtNum(avg) + '</div><div class="metric-sub">' + statMeta.unit + '</div></div>' +
+    '<div class="metric"><div class="metric-label">Median</div><div class="metric-val">' + fmtNum(med) + '</div><div class="metric-sub">' + statMeta.unit + '</div></div>' +
+    '<div class="metric"><div class="metric-label">High</div><div class="metric-val">' + fmtNum(max, 0) + '</div><div class="metric-sub">' + statMeta.unit + '</div></div>';
+  const vBox = document.getElementById('verdictBox');
+  vBox.className = 'verdict ' + verdictClass(hr.rate);
+  const vInfo = ' ' + infoIcon('verdict');
+  if (hr.rate === null) vBox.innerHTML = '<span class="verdict-icon">·</span>No games match the current filters.' + vInfo;
+  else if (hr.n < 3) vBox.innerHTML = '<span class="verdict-icon">!</span>Sample too small (' + hr.n + ' games). Hit rate not reliable.' + vInfo;
+  else if (hr.rate >= 0.65) vBox.innerHTML = '<span class="verdict-icon">✓</span>Over edge — ' + fmtPct(hr.rate) + ' hit rate at this line (' + hr.n + '-game sample).' + vInfo;
+  else if (hr.rate >= 0.45) vBox.innerHTML = '<span class="verdict-icon">~</span>Toss-up — ' + fmtPct(hr.rate) + ' hit rate at this line (' + hr.n + '-game sample).' + vInfo;
+  else vBox.innerHTML = '<span class="verdict-icon">✗</span>Under lean — ' + fmtPct(hr.rate) + ' over rate (' + hr.n + '-game sample).' + vInfo;
+}
+
+function renderSplitRow(label, games, line, isActive) {
+  if (!games || games.length === 0) return '<div class="split-row"' + (isActive ? ' style="background: var(--accent-soft); border-radius: 4px; padding-left: 8px; padding-right: 8px;"' : '') + '><div class="split-label">' + label + '</div><div></div><div class="split-rate" style="color: var(--text-muted)">—</div><div class="split-n">0</div></div>';
+  const hr = computeHitRate(games, currentStatField, line);
+  const pct = (hr.rate * 100).toFixed(0);
+  const activeStyle = isActive ? ' style="background: var(--accent-soft); border-radius: 4px; padding-left: 8px; padding-right: 8px;"' : '';
+  return '<div class="split-row"' + activeStyle + '><div class="split-label">' + label + '</div><div class="split-bar-track"><div class="split-bar-fill" style="width:' + pct + '%; background:' + barColor(hr.rate) + '"></div></div><div class="split-rate">' + pct + '%</div><div class="split-n">' + hr.n + ' gm</div></div>';
+}
+
+function renderAllPanels() {
+  const filtered = getFilteredGames();
+  const slider = document.getElementById('lineSlider');
+  if (!slider) return;
+  const lineCfg = LINE_CONFIG[currentStatField];
+  const line = parseFloat(slider.value) + lineCfg.defaultOffset;
+  const catGames = currentPlayer[currentCategory] || [];
+  const filterCount = getActiveFilterCount();
+  const subEl = document.getElementById('recentFormSub');
+  if (subEl) subEl.textContent = filterCount > 0 ? filtered.length + ' of ' + catGames.length + ' games' : catGames.length + ' games';
+
+  if (filtered.length === 0) {
+    ['recentFormPanel', 'homeAwayPanel', 'weatherPanel', 'opponentPanel', 'q1Panel', 'h1Panel'].forEach(function(id) { const el = document.getElementById(id); if (el) el.innerHTML = '<div class="empty-panel">NO GAMES MATCH FILTERS</div>'; });
+    return;
+  }
+
+  const seasonAvg = averageValue(filtered, currentStatField);
+  const l4Games = last4(filtered);
+  const l4Avg = averageValue(l4Games, currentStatField);
+  let trendClass = 'stable', trendLabel = 'stable';
+  if (seasonAvg && l4Avg && l4Games.length >= 3) {
+    const threshold = currentStatField === 'yards' && currentCategory === 'passing' ? 1.15 : 1.25;
+    if (l4Avg > seasonAvg * threshold) { trendClass = 'heating'; trendLabel = 'heating up'; }
+    else if (l4Avg < seasonAvg * (2 - threshold)) { trendClass = 'cooling'; trendLabel = 'cooling'; }
+  }
+  const seasonHr = computeHitRate(filtered, currentStatField, line);
+  const l4Hr = computeHitRate(l4Games, currentStatField, line);
+  const seasonLabel = filterCount > 0 ? 'Filtered (' + filtered.length + ' gm)' : 'Season (' + filtered.length + ' gm)';
+  document.getElementById('recentFormPanel').innerHTML =
+    buildSparkline(filtered, currentStatField, line) +
+    '<div class="split-row"><div class="split-label">' + seasonLabel + '</div><div class="split-bar-track"><div class="split-bar-fill" style="width:' + (seasonHr.rate * 100).toFixed(0) + '%; background:' + barColor(seasonHr.rate) + '"></div></div><div class="split-rate">' + fmtPct(seasonHr.rate) + '</div><div class="split-n">avg ' + fmtNum(seasonAvg) + '</div></div>' +
+    '<div class="split-row"><div class="split-label">Last 4 games <span class="trend ' + trendClass + '">' + trendLabel + '</span></div><div class="split-bar-track"><div class="split-bar-fill" style="width:' + (l4Hr.rate * 100).toFixed(0) + '%; background:' + barColor(l4Hr.rate) + '"></div></div><div class="split-rate">' + fmtPct(l4Hr.rate) + '</div><div class="split-n">avg ' + fmtNum(l4Avg) + '</div></div>';
+
+  const locGroups = groupBy(filtered, 'loc');
+  document.getElementById('homeAwayPanel').innerHTML = ['home', 'away'].map(function(loc) { return renderSplitRow(LOCATION_LABELS[loc], locGroups[loc], line, activeFilters.loc === loc); }).join('');
+
+  if (FEATURES.weather) {
+    const wxGroups = groupBy(filtered, 'wx');
+    const wxOrder = ['dome', 'clear', 'windy', 'heavy_wind', 'rain', 'snow', 'cold_extreme'];
+    const wxHtml = wxOrder.filter(function(w) { return wxGroups[w]; }).map(function(w) { return renderSplitRow(WEATHER_LABELS[w], wxGroups[w], line, activeFilters.wx === w); }).join('');
+    const wxEl = document.getElementById('weatherPanel');
+    if (wxEl) wxEl.innerHTML = wxHtml || '<div class="empty-panel">NO WEATHER DATA IN CURRENT SUBSET</div>';
+  }
+
+  if (FEATURES.opponent) {
+    const oppGroups = groupBy(filtered, 'opp');
+    const oppHtml = Object.keys(oppGroups).sort().map(function(opp) { return renderSplitRow(OPP_LABELS[opp] || opp, oppGroups[opp], line, activeFilters.opp === opp); }).join('');
+    const oppEl = document.getElementById('opponentPanel');
+    if (oppEl) oppEl.innerHTML = oppHtml || '<div class="empty-panel">NO OPPONENT DATA IN CURRENT SUBSET</div>';
+  }
+
+  const q1PanelEl = document.getElementById('q1Panel');
+  if (q1PanelEl) renderPacePanel(q1PanelEl, filtered, line, 'q1');
+  const h1PanelEl = document.getElementById('h1Panel');
+  if (h1PanelEl) renderPacePanel(h1PanelEl, filtered, line, 'h1');
+}
+
+// Cascading thresholds — starts at 0, cumulative (X+ means "at least X")
+// H1 uses roughly 2x cutoffs since it accumulates through 2 quarters
+const PACE_THRESHOLDS = {
+  q1: {
+    passing_yards:    [0, 20, 40, 60, 100],
+    passing_cmp:      [0, 2, 4, 6, 10],
+    rushing_yards:    [0, 5, 15, 30, 50],
+    receiving_yards:  [0, 10, 25, 45, 70],
+    receiving_rec:    [0, 1, 2, 3, 5]
+  },
+  h1: {
+    passing_yards:    [0, 40, 80, 130, 200],
+    passing_cmp:      [0, 4, 8, 12, 18],
+    rushing_yards:    [0, 10, 30, 55, 90],
+    receiving_yards:  [0, 20, 45, 80, 120],
+    receiving_rec:    [0, 2, 4, 6, 8]
+  }
+};
+
+function renderPacePanel(container, games, line, period) {
+  // period = 'q1' or 'h1'
+  const isReceptions = currentStatField === 'rec';
+  const isCompletions = currentStatField === 'cmp';
+  const paceField = isReceptions ? (period + '_rec') : (isCompletions ? (period + '_cmp') : (period + '_yds'));
+  const periodLabel = period.toUpperCase();
+
+  // Determine threshold key
+  let thresholdKey;
+  if (isReceptions) thresholdKey = 'receiving_rec';
+  else if (isCompletions) thresholdKey = 'passing_cmp';
+  else if (currentCategory === 'passing') thresholdKey = 'passing_yards';
+  else if (currentCategory === 'rushing') thresholdKey = 'rushing_yards';
+  else thresholdKey = 'receiving_yards';
+
+  const thresholds = PACE_THRESHOLDS[period][thresholdKey];
+  const unit = (isReceptions || isCompletions) ? '' : ' yds';
+
+  // Build column headers around current line
+  const lineCfg = LINE_CONFIG[currentStatField];
+  const cols = [];
+  for (let i = -2; i <= 2; i++) {
+    const l = line + i * lineCfg.step;
+    if (l >= 0.5) cols.push(l);
+  }
+
+  // Build matrix rows — each threshold cascades (games with pace >= threshold)
+  const rows = thresholds.map(function(t) {
+    const qualifyingGames = games.filter(function(g) { return (g[paceField] || 0) >= t; });
+    const cells = cols.map(function(l) {
+      const hr = computeHitRate(qualifyingGames, currentStatField, l);
+      return { line: l, rate: hr.rate, n: hr.n };
+    });
+    return { threshold: t, games: qualifyingGames.length, cells: cells };
+  });
+
+  let html = '<table class="cm-table"><thead><tr>';
+  html += '<th>' + periodLabel + (isReceptions ? ' rec' : (isCompletions ? ' cmp' : ' pace')) + '</th>';
+  html += '<th>Games</th>';
+  cols.forEach(function(l) { html += '<th>O ' + l.toFixed(1) + '</th>'; });
+  html += '</tr></thead><tbody>';
+
+  rows.forEach(function(row) {
+    const opacity = row.games < 3 ? ' style="opacity: 0.55"' : '';
+    html += '<tr' + opacity + '>';
+    html += '<td><strong>' + row.threshold + '+</strong>' + unit + '</td>';
+    html += '<td class="cm-games">' + row.games + '</td>';
+    row.cells.forEach(function(c) {
+      if (c.n === 0) {
+        html += '<td><span class="cm-cell empty">—</span></td>';
+      } else {
+        const pct = (c.rate * 100).toFixed(0);
+        html += '<td><span class="cm-cell ' + verdictClass(c.rate) + '">' + pct + '%</span></td>';
+      }
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function runQuickCheck() {
+  const statPath = document.getElementById('quickStatSelect').value;
+  const line = parseFloat(document.getElementById('quickLineInput').value.trim());
+  const resultBox = document.getElementById('quickResult');
+  if (isNaN(line)) { resultBox.className = 'quick-result show fade'; resultBox.textContent = 'Enter a valid number for the line (e.g. 274.5).'; return; }
+  const parts = statPath.split('.'); const cat = parts[0], field = parts[1];
+  const games = currentPlayer[cat] || [];
+  const hr = computeHitRate(games, field, line);
+  const statLabel = STAT_FIELDS[cat].find(function(f) { return f.field === field; }).label;
+  resultBox.className = 'quick-result show ' + verdictClass(hr.rate);
+  if (hr.rate === null) resultBox.textContent = 'No data for this stat.';
+  else if (hr.rate >= 0.65) resultBox.textContent = '✓ Over ' + line + ' ' + statLabel + ' — ' + fmtPct(hr.rate) + ' hit rate (' + hr.hits + '/' + hr.n + ' games). Strong edge.';
+  else if (hr.rate >= 0.45) resultBox.textContent = '~ Over ' + line + ' ' + statLabel + ' — ' + fmtPct(hr.rate) + ' hit rate (' + hr.hits + '/' + hr.n + ' games). Toss-up.';
+  else resultBox.textContent = '✗ Over ' + line + ' ' + statLabel + ' — only ' + fmtPct(hr.rate) + ' over rate (' + hr.hits + '/' + hr.n + ' games). Under lean.';
+}
+
+init();
+</script>
+</body>
+</html>
