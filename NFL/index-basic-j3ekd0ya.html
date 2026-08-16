@@ -416,25 +416,33 @@ function determineDefaultSeasonView() {
   if (!currentPlayer) return 'combined';
   // Rookies have no prior-season data — always show current only
   if (currentPlayer.is_rookie) return 'current';
-  let currentCount = 0;
-  ['passing', 'rushing', 'receiving', 'sacks', 'tackles', 'interceptions'].forEach(function(cat) {
-    if (currentPlayer[cat]) {
-      currentCount += currentPlayer[cat].filter(function(g) { return g.season === CURRENT_SEASON; }).length;
-    }
-  });
-  return currentCount >= AUTO_SWITCH_THRESHOLD ? 'current' : 'combined';
-}
-
-function renderSeasonToggle() {
-  let currentCount = 0, priorCount = 0;
+  // Count UNIQUE current-season games (dedup across categories by week)
+  const seenCurrent = new Set();
   ['passing', 'rushing', 'receiving', 'sacks', 'tackles', 'interceptions'].forEach(function(cat) {
     if (currentPlayer[cat]) {
       currentPlayer[cat].forEach(function(g) {
-        if (g.season === CURRENT_SEASON) currentCount++;
-        else if (g.season === PRIOR_SEASON) priorCount++;
+        if (g.season === CURRENT_SEASON) seenCurrent.add((g.season || 0) + '-w' + (g.wk || 0));
       });
     }
   });
+  return seenCurrent.size >= AUTO_SWITCH_THRESHOLD ? 'current' : 'combined';
+}
+
+function renderSeasonToggle() {
+  // Count UNIQUE games (dedup across stat categories) by season
+  const seenCurrent = new Set();
+  const seenPrior = new Set();
+  ['passing', 'rushing', 'receiving', 'sacks', 'tackles', 'interceptions'].forEach(function(cat) {
+    if (currentPlayer[cat]) {
+      currentPlayer[cat].forEach(function(g) {
+        const key = (g.season || 0) + '-w' + (g.wk || 0);
+        if (g.season === CURRENT_SEASON) seenCurrent.add(key);
+        else if (g.season === PRIOR_SEASON) seenPrior.add(key);
+      });
+    }
+  });
+  const currentCount = seenCurrent.size;
+  const priorCount = seenPrior.size;
   const totalCount = currentCount + priorCount;
   const isRookie = !!currentPlayer.is_rookie;
 
@@ -640,7 +648,8 @@ async function init() {
     const res = await fetch('./propbetiq_nfl-mwfsapw8.json');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     DATA = await res.json();
-    document.getElementById('metaBox').innerHTML = 'SEASON ' + DATA.meta.season + '<br>' + DATA.meta.n_players + ' PLAYERS';
+    const seasonLabel = DATA.meta.current_season ? (DATA.meta.prior_season + '–' + DATA.meta.current_season) : (DATA.meta.season || '');
+    document.getElementById('metaBox').innerHTML = 'SEASON ' + seasonLabel + '<br>' + DATA.meta.n_players + ' PLAYERS';
     document.getElementById('loading').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     setupSearch();
