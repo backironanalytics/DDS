@@ -240,6 +240,21 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: v
   .season-toggle { flex-direction: column; align-items: flex-start; }
   .season-count { margin-left: 0; }
 }
+/* ── Season year toggle bar ─────────────────────────────────── */
+.season-toggle-bar { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: var(--gap-md); flex-wrap: wrap; }
+.season-toggle-bar.rookie { border-color: rgba(96, 165, 250, 0.4); background: rgba(96, 165, 250, 0.06); }
+.season-toggle-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--text-secondary); text-transform: uppercase; }
+.season-toggle-group { display: inline-flex; background: var(--bg-elevated); border-radius: 6px; padding: 2px; border: 1px solid var(--border); }
+.season-toggle-btn { padding: 6px 12px; background: transparent; color: var(--text-secondary); border: none; border-radius: 4px; font-family: var(--font-mono); font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; letter-spacing: 0.02em; }
+.season-toggle-btn.active { background: var(--accent); color: #1a1440; }
+.season-toggle-btn:hover:not(.active):not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+.season-toggle-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.season-source-badge { font-family: var(--font-sans); font-size: 12px; color: var(--text-secondary); margin-left: auto; }
+.season-source-badge strong { color: var(--text-primary); font-weight: 600; }
+/* ── Status badges (rookie, team change) ────────────────────── */
+.status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: 0.04em; margin-left: 8px; vertical-align: middle; }
+.status-badge.rookie { background: rgba(96, 165, 250, 0.15); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.3); }
+.status-badge.team-change { background: rgba(243, 156, 31, 0.15); color: var(--accent); border: 1px solid rgba(243, 156, 31, 0.3); }
 </style>
 </head>
 <body>
@@ -311,6 +326,78 @@ const UPGRADE_URL = 'https://www.patreon.com/checkout/PropBetIQ?rid=29345236&van
 let DATA = null, currentPlayer = null;
 let currentCategory = 'points', currentStatField = 'pts';
 let currentSeasonType = 'regular';
+let seasonYearView = 'combined';
+let CURRENT_SEASON_YEAR = null;
+let PRIOR_SEASON_YEAR = null;
+let CURRENT_SEASON_LABEL = '';
+let PRIOR_SEASON_LABEL = '';
+const AUTO_SWITCH_THRESHOLD = 5;
+
+function getSeasonYearFilteredGames(games) {
+  if (seasonYearView === 'combined' || CURRENT_SEASON_YEAR === null) return games;
+  if (seasonYearView === 'current') return games.filter(function(g) { return g.season === CURRENT_SEASON_YEAR; });
+  if (seasonYearView === 'prior') return games.filter(function(g) { return g.season === PRIOR_SEASON_YEAR; });
+  return games;
+}
+
+function determineDefaultSeasonYearView() {
+  if (!currentPlayer) return 'combined';
+  if (currentPlayer.is_rookie) return 'current';
+  const currentGames = (currentPlayer.games || []).filter(function(g) { return g.season === CURRENT_SEASON_YEAR; });
+  return currentGames.length >= AUTO_SWITCH_THRESHOLD ? 'current' : 'combined';
+}
+
+function renderSeasonYearToggle() {
+  if (!currentPlayer || CURRENT_SEASON_YEAR === null) return;
+  const seenCurrent = new Set(), seenPrior = new Set();
+  (currentPlayer.games || []).forEach(function(g) {
+    if (g.season === CURRENT_SEASON_YEAR) seenCurrent.add(g.game_id);
+    else if (g.season === PRIOR_SEASON_YEAR) seenPrior.add(g.game_id);
+  });
+  const currentCount = seenCurrent.size;
+  const priorCount = seenPrior.size;
+  const totalCount = currentCount + priorCount;
+  const isRookie = !!currentPlayer.is_rookie;
+
+  const currentDisabled = currentCount === 0 ? ' disabled title="No current season games yet"' : '';
+  const priorDisabled = priorCount === 0 ? ' disabled title="No prior season games"' : '';
+  const combinedDisabled = totalCount === 0 ? ' disabled' : '';
+
+  let sourceBadge = '';
+  if (isRookie) {
+    sourceBadge = '<strong>🌱 Rookie</strong> — no prior-season NBA data. Showing ' + CURRENT_SEASON_LABEL + ' only · ' + currentCount + ' games';
+  } else if (seasonYearView === 'combined') sourceBadge = 'Showing <strong>combined ' + PRIOR_SEASON_LABEL + ' + ' + CURRENT_SEASON_LABEL + '</strong> · ' + totalCount + ' games';
+  else if (seasonYearView === 'current') sourceBadge = 'Showing <strong>' + CURRENT_SEASON_LABEL + ' only</strong> · ' + currentCount + ' games';
+  else sourceBadge = 'Showing <strong>' + PRIOR_SEASON_LABEL + ' only</strong> · ' + priorCount + ' games';
+
+  const toggleButtons = isRookie ? '' :
+    '<div class="season-toggle-group">' +
+      '<button class="season-toggle-btn ' + (seasonYearView === 'combined' ? 'active' : '') + '"' + combinedDisabled + ' data-view="combined">Combined</button>' +
+      '<button class="season-toggle-btn ' + (seasonYearView === 'current' ? 'active' : '') + '"' + currentDisabled + ' data-view="current">' + CURRENT_SEASON_LABEL + '</button>' +
+      '<button class="season-toggle-btn ' + (seasonYearView === 'prior' ? 'active' : '') + '"' + priorDisabled + ' data-view="prior">' + PRIOR_SEASON_LABEL + '</button>' +
+    '</div>';
+
+  const label = isRookie ? '' : '<span class="season-toggle-label">Season year:</span>';
+
+  const toggleHtml = '<div class="season-toggle-bar' + (isRookie ? ' rookie' : '') + '" id="seasonYearToggleBar">' +
+    label + toggleButtons + '<span class="season-source-badge">' + sourceBadge + '</span></div>';
+
+  const existing = document.getElementById('seasonYearToggleBar');
+  if (existing) existing.remove();
+  // Insert after upgrade banner if present, else after playerHeader
+  const anchor = document.getElementById('upgradeBanner') || document.getElementById('playerHeader');
+  anchor.insertAdjacentHTML('afterend', toggleHtml);
+
+  document.querySelectorAll('#seasonYearToggleBar .season-toggle-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (btn.disabled) return;
+      if (btn.dataset.view === seasonYearView) return;
+      seasonYearView = btn.dataset.view;
+      renderSeasonYearToggle();
+      renderAllPanels();
+    });
+  });
+}
 let activeFilters = { loc: null, opp: null, last10: false };
 
 const CATEGORY_LABELS = { points: 'Points', assists: 'Assists', rebounds: 'Rebounds', combos: 'Combos', efficiency: 'Efficiency', defense: 'Defense', q1only: 'Q1 Only' };
@@ -410,7 +497,16 @@ async function init() {
     const res = await fetch('./propbetiq_nba-9qnu70eq.json');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     DATA = await res.json();
-    document.getElementById('metaBox').innerHTML = 'SEASON ' + DATA.meta.season + '<br>' + DATA.meta.n_players + ' PLAYERS';
+    if (DATA.meta.current_season) {
+      CURRENT_SEASON_LABEL = DATA.meta.current_season;
+      PRIOR_SEASON_LABEL = DATA.meta.prior_season || '';
+      CURRENT_SEASON_YEAR = DATA.meta.current_season_year || null;
+      PRIOR_SEASON_YEAR = DATA.meta.prior_season_year || null;
+    }
+    const seasonHeader = CURRENT_SEASON_LABEL && PRIOR_SEASON_LABEL
+      ? (PRIOR_SEASON_LABEL + ' + ' + CURRENT_SEASON_LABEL)
+      : (DATA.meta.current_season || DATA.meta.season || '');
+    document.getElementById('metaBox').innerHTML = 'SEASON ' + seasonHeader + '<br>' + DATA.meta.n_players + ' PLAYERS';
     document.getElementById('loading').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     setupSearch();
@@ -471,10 +567,14 @@ function renderPlayer() {
   const team = currentPlayer.current_team || '';
   const headshotUrl = 'https://cdn.nba.com/headshots/nba/latest/1040x760/' + currentPlayer.id + '.png';
   const teamLogoUrl = team ? 'https://cdn.nba.com/logos/nba/' + NBA_TEAM_IDS[team] + '/primary/L/logo.svg' : '';
+  let badges = '';
+  if (currentPlayer.is_rookie) badges += '<span class="status-badge rookie">🌱 Rookie</span>';
+  if (currentPlayer.team_change_note) badges += '<span class="status-badge team-change">↔ ' + currentPlayer.team_change_note + '</span>';
+  seasonYearView = determineDefaultSeasonYearView();
   document.getElementById('playerHeader').innerHTML =
     '<img class="player-headshot" src="' + headshotUrl + '" alt="' + currentPlayer.display_name + '" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">' +
     '<div class="player-avatar" style="display:none;">' + initials + '</div>' +
-    '<div class="player-info"><h2>' + currentPlayer.display_name + '</h2>' +
+    '<div class="player-info"><h2>' + currentPlayer.display_name + badges + '</h2>' +
     '<div class="player-meta">' + (team || '—') + '</div></div>' +
     (teamLogoUrl ? '<img class="team-logo" src="' + teamLogoUrl + '" alt="' + team + '" onerror="this.style.display=\'none\';">' : '');
   const existingBanner = document.getElementById('upgradeBanner');
@@ -485,6 +585,7 @@ function renderPlayer() {
     banner.innerHTML = '<div class="upgrade-banner-content"><div class="upgrade-banner-icon">⚡</div><div class="upgrade-banner-text">You\'re on <strong>Starter</strong>. Unlock <strong>Q1/H1/Q3 conditional matrix</strong>, <strong>vs Tonight\'s Opponent</strong>, and <strong>Last 10 games</strong> filter with Edge.</div></div><a href="' + UPGRADE_URL + '" class="upgrade-btn">Upgrade — $7/mo</a>';
     document.getElementById('playerHeader').insertAdjacentElement('afterend', banner);
   }
+  renderSeasonYearToggle();
   const categories = Object.keys(CATEGORY_LABELS);
   document.getElementById('categoryTabs').innerHTML = categories.map(function(c) { return '<button class="tab ' + (c === currentCategory ? 'active' : '') + '" data-cat="' + c + '">' + CATEGORY_LABELS[c] + '</button>'; }).join('');
   document.getElementById('categoryTabs').querySelectorAll('.tab').forEach(function(el) { el.addEventListener('click', function() { setCategory(el.dataset.cat); }); });
@@ -524,7 +625,8 @@ function getStatFieldMeta() {
 }
 
 function getPlayerGames() {
-  const games = (currentPlayer.games || []).filter(g => {
+  const yearFiltered = getSeasonYearFilteredGames(currentPlayer.games || []);
+  const games = yearFiltered.filter(g => {
     if (currentSeasonType === 'regular') return g.season_type === 'regular';
     if (currentSeasonType === 'playoffs') return g.season_type === 'playoffs';
     return true;
