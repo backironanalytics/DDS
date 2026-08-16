@@ -342,7 +342,7 @@ function getSeasonYearFilteredGames(games) {
 
 function determineDefaultSeasonYearView() {
   if (!currentPlayer) return 'combined';
-  if (currentPlayer.is_rookie) return 'current';
+  if (currentPlayer.is_rookie === true) return 'current';
   const currentGames = (currentPlayer.games || []).filter(function(g) { return g.season === CURRENT_SEASON_YEAR; });
   return currentGames.length >= AUTO_SWITCH_THRESHOLD ? 'current' : 'combined';
 }
@@ -357,7 +357,7 @@ function renderSeasonYearToggle() {
   const currentCount = seenCurrent.size;
   const priorCount = seenPrior.size;
   const totalCount = currentCount + priorCount;
-  const isRookie = !!currentPlayer.is_rookie;
+  const isRookie = currentPlayer.is_rookie === true;
 
   const currentDisabled = currentCount === 0 ? ' disabled title="No current season games yet"' : '';
   const priorDisabled = priorCount === 0 ? ' disabled title="No prior season games"' : '';
@@ -568,8 +568,10 @@ function renderPlayer() {
   const headshotUrl = 'https://cdn.nba.com/headshots/nba/latest/1040x760/' + currentPlayer.id + '.png';
   const teamLogoUrl = team ? 'https://cdn.nba.com/logos/nba/' + NBA_TEAM_IDS[team] + '/primary/L/logo.svg' : '';
   let badges = '';
-  if (currentPlayer.is_rookie) badges += '<span class="status-badge rookie">🌱 Rookie</span>';
-  if (currentPlayer.team_change_note) badges += '<span class="status-badge team-change">↔ ' + currentPlayer.team_change_note + '</span>';
+  if (currentPlayer.is_rookie === true) badges += '<span class="status-badge rookie">🌱 Rookie</span>';
+  if (typeof currentPlayer.team_change_note === 'string' && currentPlayer.team_change_note.length > 0) {
+    badges += '<span class="status-badge team-change">↔ ' + currentPlayer.team_change_note + '</span>';
+  }
   seasonYearView = determineDefaultSeasonYearView();
   document.getElementById('playerHeader').innerHTML =
     '<img class="player-headshot" src="' + headshotUrl + '" alt="' + currentPlayer.display_name + '" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">' +
