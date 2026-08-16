@@ -136,6 +136,52 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: v
 .verdict { padding: 12px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; }
 .verdict-icon { font-family: var(--font-mono); font-weight: 700; margin-right: 8px; font-size: 15px; }
 
+/* ── Season toggle + status badges ─────────────────────────── */
+.season-toggle-bar {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 6px;
+  margin-bottom: var(--gap-md);
+  flex-wrap: wrap;
+}
+.season-toggle-label {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em;
+  color: var(--text-secondary); text-transform: uppercase;
+}
+.season-toggle-group { display: flex; gap: 4px; }
+.season-toggle-btn {
+  background: transparent; color: var(--text-secondary);
+  border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em;
+  cursor: pointer; transition: all 0.15s ease;
+}
+.season-toggle-btn:hover { background: var(--bg-elevated-2); color: var(--text-primary); }
+.season-toggle-btn.active { background: var(--accent); color: #1a1440; border-color: var(--accent); font-weight: 700; }
+.season-toggle-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.season-source-badge {
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);
+  letter-spacing: 0.04em; margin-left: auto;
+}
+.season-source-badge strong { color: var(--accent); font-weight: 600; }
+
+.status-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em;
+  padding: 3px 8px; border-radius: 3px; text-transform: uppercase; font-weight: 700;
+  margin-left: 8px; vertical-align: middle;
+}
+.status-badge.team-change { background: rgba(243, 156, 31, 0.15); color: var(--accent); border: 1px solid rgba(243, 156, 31, 0.3); }
+.status-badge.rookie { background: rgba(96, 165, 250, 0.15); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.3); }
+
+.regular-season-indicator {
+  display: inline-block; font-family: var(--font-mono); font-size: 9px;
+  color: var(--text-muted); letter-spacing: 0.05em; padding: 3px 8px;
+  background: var(--bg-elevated); border-radius: 3px; margin-left: 8px;
+}
+
+/* Season divider on sparkline */
+.spark-divider { stroke: var(--text-muted); stroke-width: 0.5; stroke-dasharray: 2 3; opacity: 0.4; }
+.spark-season-label { font-family: var(--font-mono); font-size: 8px; fill: var(--text-muted); }
+
 /* ── Info tooltip system ────────────────────────────────────────── */
 .info-icon {
   display: inline-flex; align-items: center; justify-content: center;
@@ -349,6 +395,93 @@ const FEATURES = { weather: true, opponent: true, q1: true, filterWx: true, filt
 
 let DATA = null, currentPlayer = null, currentCategory = 'passing', currentStatField = 'yards';
 let activeFilters = { loc: null, wx: null, opp: null };
+let seasonView = 'combined';  // 'combined', 'current', 'prior'
+const CURRENT_SEASON = 2026;
+const PRIOR_SEASON = 2025;
+const AUTO_SWITCH_THRESHOLD = 5;  // switch default to current-only when current has this many games
+
+function getSeasonFilteredGames(games) {
+  if (!games) return [];
+  if (seasonView === 'current') return games.filter(function(g) { return g.season === CURRENT_SEASON; });
+  if (seasonView === 'prior') return games.filter(function(g) { return g.season === PRIOR_SEASON; });
+  return games;  // combined
+}
+
+function determineDefaultSeasonView() {
+  if (!currentPlayer) return 'combined';
+  // Rookies have no prior-season data — always show current only
+  if (currentPlayer.is_rookie) return 'current';
+  // Count current-season games across all categories
+  let currentCount = 0;
+  ['passing', 'rushing', 'receiving', 'sacks', 'tackles', 'interceptions'].forEach(function(cat) {
+    if (currentPlayer[cat]) {
+      currentCount += currentPlayer[cat].filter(function(g) { return g.season === CURRENT_SEASON; }).length;
+    }
+  });
+  return currentCount >= AUTO_SWITCH_THRESHOLD ? 'current' : 'combined';
+}
+
+function renderSeasonToggle() {
+  // Count games in each season across all categories for this player
+  let currentCount = 0, priorCount = 0;
+  ['passing', 'rushing', 'receiving', 'sacks', 'tackles', 'interceptions'].forEach(function(cat) {
+    if (currentPlayer[cat]) {
+      currentPlayer[cat].forEach(function(g) {
+        if (g.season === CURRENT_SEASON) currentCount++;
+        else if (g.season === PRIOR_SEASON) priorCount++;
+      });
+    }
+  });
+  const totalCount = currentCount + priorCount;
+  const isRookie = !!currentPlayer.is_rookie;
+
+  const currentDisabled = currentCount === 0 ? ' disabled title="No current season games yet"' : '';
+  const priorDisabled = priorCount === 0 ? ' disabled title="No prior season games"' : '';
+  const combinedDisabled = totalCount === 0 ? ' disabled' : '';
+
+  let sourceBadge = '';
+  if (isRookie) {
+    sourceBadge = '<strong>🌱 Rookie</strong> — no prior-season NFL data. Showing ' + CURRENT_SEASON + ' only · ' + currentCount + ' games';
+  } else if (seasonView === 'combined') sourceBadge = 'Showing <strong>combined ' + PRIOR_SEASON + ' + ' + CURRENT_SEASON + '</strong> · ' + totalCount + ' games';
+  else if (seasonView === 'current') sourceBadge = 'Showing <strong>' + CURRENT_SEASON + ' only</strong> · ' + currentCount + ' games';
+  else sourceBadge = 'Showing <strong>' + PRIOR_SEASON + ' only</strong> · ' + priorCount + ' games';
+
+  // For rookies, hide the toggle buttons entirely — no choice to make
+  const toggleButtons = isRookie ? '' :
+    '<div class="season-toggle-group">' +
+      '<button class="season-toggle-btn ' + (seasonView === 'combined' ? 'active' : '') + '"' + combinedDisabled + ' data-view="combined">Combined</button>' +
+      '<button class="season-toggle-btn ' + (seasonView === 'current' ? 'active' : '') + '"' + currentDisabled + ' data-view="current">' + CURRENT_SEASON + '</button>' +
+      '<button class="season-toggle-btn ' + (seasonView === 'prior' ? 'active' : '') + '"' + priorDisabled + ' data-view="prior">' + PRIOR_SEASON + '</button>' +
+    '</div>';
+
+  const label = isRookie ? '' : '<span class="season-toggle-label">Data source:</span>';
+
+  const toggleHtml = '<div class="season-toggle-bar' + (isRookie ? ' rookie' : '') + '" id="seasonToggleBar">' +
+    label + toggleButtons +
+    '<span class="season-source-badge">' + sourceBadge + '</span>' +
+  '</div>';
+
+  const existing = document.getElementById('seasonToggleBar');
+  if (existing) existing.remove();
+
+  document.getElementById('playerHeader').insertAdjacentHTML('afterend', toggleHtml);
+
+  document.querySelectorAll('#seasonToggleBar .season-toggle-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (btn.disabled) return;
+      setSeasonView(btn.dataset.view);
+    });
+  });
+}
+
+function setSeasonView(view) {
+  if (view === seasonView) return;
+  seasonView = view;
+  activeFilters = { loc: null, wx: null, opp: null };  // reset filters when season changes
+  renderSeasonToggle();
+  // Re-render the stat content since data set changed
+  if (typeof renderStatContent === 'function') renderStatContent();
+}
 
 const CATEGORY_LABELS = { passing: 'Passing', rushing: 'Rushing', receiving: 'Receiving', sacks: 'Sacks', tackles: 'Tackles', interceptions: 'Def INTs' };
 const STAT_FIELDS = {
@@ -484,7 +617,10 @@ function infoIcon(key) {
 
 function buildSparkline(games, statField, line) {
   if (!games || games.length === 0) return '';
-  const sorted = games.slice().sort(function(a, b) { return (a.wk || 0) - (b.wk || 0); });
+  const sorted = games.slice().sort(function(a, b) {
+    if ((a.season || 0) !== (b.season || 0)) return (a.season || 0) - (b.season || 0);
+    return (a.wk || 0) - (b.wk || 0);
+  });
   const values = sorted.map(function(g) { return g[statField] || 0; });
   const maxVal = Math.max.apply(null, values.concat([line]));
   const minVal = 0;
@@ -495,15 +631,32 @@ function buildSparkline(games, statField, line) {
   const points = sorted.map(function(g, i) {
     const x = padL + i * xStep;
     const y = scaleY(g[statField] || 0);
-    return { x: x, y: y, val: g[statField] || 0, wk: g.wk, opp: g.opp, loc: g.loc };
+    return { x: x, y: y, val: g[statField] || 0, wk: g.wk, opp: g.opp, loc: g.loc, season: g.season };
   });
+
+  // Detect season boundary (only if we have games from multiple seasons)
+  let dividerHtml = '';
+  const seasonsPresent = Array.from(new Set(sorted.map(function(g) { return g.season; }))).filter(Boolean).sort();
+  if (seasonsPresent.length > 1) {
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].season !== sorted[i-1].season) {
+        const midX = (points[i-1].x + points[i].x) / 2;
+        dividerHtml += '<line class="spark-divider" x1="' + midX.toFixed(1) + '" y1="' + padT + '" x2="' + midX.toFixed(1) + '" y2="' + (h - padB) + '"></line>';
+        dividerHtml += '<text class="spark-season-label" x="' + (midX - 2).toFixed(1) + '" y="' + (padT + 8) + '" text-anchor="end">' + sorted[i-1].season + '</text>';
+        dividerHtml += '<text class="spark-season-label" x="' + (midX + 2).toFixed(1) + '" y="' + (padT + 8) + '" text-anchor="start">' + sorted[i].season + '</text>';
+        break;  // only draw one divider
+      }
+    }
+  }
+
   const pathD = points.map(function(p, i) { return (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' ');
   const lineY = scaleY(line);
   const overCount = values.filter(function(v) { return v > line; }).length;
   const underCount = values.filter(function(v) { return v < line; }).length;
   const dots = points.map(function(p) {
     const cls = p.val > line ? 'spark-dot-over' : (p.val < line ? 'spark-dot-under' : 'spark-dot-tie');
-    const label = 'Wk ' + p.wk + (p.loc === 'away' ? ' @ ' : ' vs ') + (p.opp || '') + ' — ' + p.val.toFixed(1);
+    const seasonPrefix = p.season ? p.season + ' ' : '';
+    const label = seasonPrefix + 'Wk ' + p.wk + (p.loc === 'away' ? ' @ ' : ' vs ') + (p.opp || '') + ' — ' + p.val.toFixed(1);
     return '<circle class="spark-dot ' + cls + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="3" data-label="' + label + '" onmouseenter="showSparkTip(event, this)" onmouseleave="hideSparkTip()" onclick="showSparkTip(event, this)"></circle>';
   }).join('');
   return '<div class="sparkline-wrap">' +
@@ -513,6 +666,7 @@ function buildSparkline(games, statField, line) {
     '</div>' +
     '<svg class="sparkline-svg" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
       '<line class="spark-line-ref" x1="' + padL + '" y1="' + lineY.toFixed(1) + '" x2="' + (w - padR) + '" y2="' + lineY.toFixed(1) + '"></line>' +
+      dividerHtml +
       '<path class="spark-line" d="' + pathD + '"></path>' + dots +
     '</svg></div>';
 }
@@ -600,6 +754,7 @@ function setupSearch() {
 function selectPlayer(playerId) {
   currentPlayer = Object.assign({ id: playerId }, DATA.players[playerId]);
   activeFilters = { loc: null, wx: null, opp: null };
+  seasonView = determineDefaultSeasonView();
   document.getElementById('playerSearch').value = '';
   document.getElementById('searchResults').classList.remove('open');
   renderPlayer();
@@ -613,13 +768,22 @@ function renderPlayer() {
   const teamAbbr = NFL_TEAM_ABBRS[team] || team.toLowerCase();
   const headshotUrl = currentPlayer.headshot_url || '';
   const teamLogoUrl = teamAbbr ? 'https://a.espncdn.com/i/teamlogos/nfl/500/' + teamAbbr + '.png' : '';
+
+  // Build badges
+  let badges = '';
+  if (currentPlayer.is_rookie) badges += '<span class="status-badge rookie">🌱 Rookie</span>';
+  if (currentPlayer.team_change_note) badges += '<span class="status-badge team-change">↔ ' + currentPlayer.team_change_note + '</span>';
+
   document.getElementById('playerHeader').innerHTML =
     (headshotUrl
       ? '<img class="player-headshot" src="' + headshotUrl + '" alt="' + currentPlayer.display_name + '" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';"><div class="player-avatar" style="display:none;">' + initials + '</div>'
       : '<div class="player-avatar" style="display:flex;">' + initials + '</div>') +
-    '<div class="player-info"><h2>' + currentPlayer.display_name + '</h2>' +
-    '<div class="player-meta">' + (position ? position + ' · ' : '') + (team || '—') + '</div></div>' +
+    '<div class="player-info"><h2>' + currentPlayer.display_name + badges + '</h2>' +
+    '<div class="player-meta">' + (position ? position + ' · ' : '') + (team || '—') +
+      '<span class="regular-season-indicator">Regular season only</span></div></div>' +
     (teamLogoUrl ? '<img class="team-logo" src="' + teamLogoUrl + '" alt="' + team + '" onerror="this.style.display=\'none\';">' : '');
+
+  renderSeasonToggle();
   const categories = Object.keys(CATEGORY_LABELS).filter(function(c) { return currentPlayer[c]; });
   if (categories.length === 0) { document.getElementById('categoryTabs').innerHTML = ''; document.getElementById('statContent').innerHTML = '<div class="loading">NO STAT DATA FOR THIS PLAYER</div>'; return; }
   if (categories.indexOf(currentCategory) === -1) currentCategory = categories[0];
@@ -642,7 +806,8 @@ function setStatField(field) { currentStatField = field; activeFilters = { loc: 
 
 function getFilteredGames() {
   const catGames = currentPlayer[currentCategory] || [];
-  return catGames.filter(function(g) {
+  const seasonFiltered = getSeasonFilteredGames(catGames);
+  return seasonFiltered.filter(function(g) {
     if (activeFilters.loc && g.loc !== activeFilters.loc) return false;
     if (activeFilters.wx && g.wx !== activeFilters.wx) return false;
     if (activeFilters.opp && g.opp !== activeFilters.opp) return false;
@@ -666,7 +831,7 @@ function fmtPct(v) { return v === null ? '—' : (v * 100).toFixed(0) + '%'; }
 function fmtNum(v, d) { if (d === undefined) d = 1; return v === null ? '—' : v.toFixed(d); }
 
 function renderStatContent() {
-  const catGames = currentPlayer[currentCategory] || [];
+  const catGames = getSeasonFilteredGames(currentPlayer[currentCategory] || []);
   const fields = STAT_FIELDS[currentCategory];
   const lineCfg = LINE_CONFIG[currentStatField];
   const seasonAvg = averageValue(catGames, currentStatField);
@@ -696,7 +861,7 @@ function renderStatContent() {
 function renderFilterBar() {
   const bar = document.getElementById('filterBar');
   if (!bar) return;
-  const catGames = currentPlayer[currentCategory] || [];
+  const catGames = getSeasonFilteredGames(currentPlayer[currentCategory] || []);
   const activeCount = getActiveFilterCount();
   const locGroups = groupBy(catGames, 'loc');
   const wxGroups = groupBy(catGames, 'wx');
@@ -796,7 +961,7 @@ function renderAllPanels() {
   if (!slider) return;
   const lineCfg = LINE_CONFIG[currentStatField];
   const line = parseFloat(slider.value) + lineCfg.defaultOffset;
-  const catGames = currentPlayer[currentCategory] || [];
+  const catGames = getSeasonFilteredGames(currentPlayer[currentCategory] || []);
   const filterCount = getActiveFilterCount();
   const subEl = document.getElementById('recentFormSub');
   if (subEl) subEl.textContent = filterCount > 0 ? filtered.length + ' of ' + catGames.length + ' games' : catGames.length + ' games';
