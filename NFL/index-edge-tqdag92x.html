@@ -349,7 +349,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: v
       <span class="tier-badge-edge">Edge</span>
     </div>
     <div class="top-controls">
-      <div class="top-meta" id="metaBox">Loading…</div>
+      
       <div class="toggle-group">
         <button class="toggle-btn" id="themeToggle" title="Toggle theme">Dark</button>
         <button class="toggle-btn" id="densityToggle" title="Toggle density">Comfy</button>
@@ -733,7 +733,7 @@ async function init() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     DATA = await res.json();
     const seasonLabel = DATA.meta.current_season ? (DATA.meta.prior_season + '–' + DATA.meta.current_season) : (DATA.meta.season || '');
-    document.getElementById('metaBox').innerHTML = 'SEASON ' + seasonLabel + '<br>' + DATA.meta.n_players + ' PLAYERS';
+    
     document.getElementById('loading').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     setupSearch();
