@@ -13,7 +13,7 @@ invisible(lapply(pkgs, library, character.only = TRUE))
 # Email credentials: GitHub Actions uses the SMTP_PASSWORD secret; local runs use the gmail_creds file
 smtp_creds <- function() {
   if (nzchar(Sys.getenv("SMTP_PASSWORD"))) {
-    blastula::creds_envvar(user = "ccraig2435@gmail.com", pass_envvar = "SMTP_PASSWORD", provider = "gmail")
+    blastula::creds_envvar(user = "backironanalytics@gmail.com", pass_envvar = "SMTP_PASSWORD", provider = "gmail")
   } else {
     blastula::creds_file("gmail_creds")
   }
@@ -39,8 +39,8 @@ You will receive another email when the run completes or if it fails.
 
   blastula::smtp_send(
     start_email,
-    to          = "ccraig2435@gmail.com",
-    from        = "ccraig2435@gmail.com",
+    to          = "backironanalytics@gmail.com",
+    from        = "backironanalytics@gmail.com",
     subject     = glue::glue("⏳ NBA Props Matrix Started — {format(Sys.Date(), '%b %d %Y')}"),
     credentials = smtp_creds()
   )
@@ -4800,8 +4800,8 @@ library(reactablefmtr)
 #   
 #   blastula::smtp_send(
 #     success_email,
-#     to          = "ccraig2435@gmail.com",
-#     from        = "ccraig2435@gmail.com",
+#     to          = "backironanalytics@gmail.com",
+#     from        = "backironanalytics@gmail.com",
 #     subject     = glue::glue("\u2705 PropIQ Ready \u2014 {game_date_str}"),
 #     credentials = blastula::creds_file("gmail_creds")
 #   )
@@ -4831,8 +4831,8 @@ library(reactablefmtr)
 #   
 #   blastula::smtp_send(
 #     error_email,
-#     to          = "ccraig2435@gmail.com",
-#     from        = "ccraig2435@gmail.com",
+#     to          = "backironanalytics@gmail.com",
+#     from        = "backironanalytics@gmail.com",
 #     subject     = glue::glue("\u274c PropIQ FAILED \u2014 {format(Sys.Date(), '%b %d %Y')}"),
 #     credentials = blastula::creds_file("gmail_creds")
 #   )
@@ -5431,8 +5431,8 @@ tryCatch({
   
   blastula::smtp_send(
     success_email,
-    to          = "ccraig2435@gmail.com",
-    from        = "ccraig2435@gmail.com",
+    to          = "backironanalytics@gmail.com",
+    from        = "backironanalytics@gmail.com",
     subject     = glue::glue("\u2705 PropBetIQ NBA Ready \u2014 {game_date_str}"),
     credentials = smtp_creds()
   )
@@ -5472,8 +5472,8 @@ tryCatch({
     
     blastula::smtp_send(
       error_email,
-      to          = "ccraig2435@gmail.com",
-      from        = "ccraig2435@gmail.com",
+      to          = "backironanalytics@gmail.com",
+      from        = "backironanalytics@gmail.com",
       subject     = glue::glue("\u274c PropBetIQ NBA FAILED \u2014 {format(Sys.Date(), '%b %d %Y')}"),
       credentials = smtp_creds()
     )
