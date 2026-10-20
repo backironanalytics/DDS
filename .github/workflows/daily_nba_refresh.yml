@@ -37,7 +37,7 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          cache-version: 1
+          cache-version: 2
           packages: |
             any::tidyverse
             abresler/nbastatR
@@ -76,6 +76,9 @@ jobs:
             any::parallelly
             any::stringi
             any::base64enc
+            any::viridis
+            any::reactable
+            kcuilla/reactablefmtr
 
       # Keeps already-downloaded play-by-play games between runs so only new games are fetched
       - name: Restore play-by-play cache
