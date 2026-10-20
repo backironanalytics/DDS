@@ -37,7 +37,7 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          cache-version: 2
+          cache-version: 3
           packages: |
             any::tidyverse
             abresler/nbastatR
@@ -78,6 +78,7 @@ jobs:
             any::base64enc
             any::viridis
             any::reactable
+            timelyportfolio/dataui
             kcuilla/reactablefmtr
 
       # Keeps already-downloaded play-by-play games between runs so only new games are fetched
