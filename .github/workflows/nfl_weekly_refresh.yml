@@ -1,0 +1,111 @@
+name: NFL weekly refresh
+
+on:
+  schedule:
+    # GitHub cron is UTC: Tuesdays 13:23 UTC = 6:23am Pacific (5:23am after DST ends)
+    - cron: '23 13 * * 2'
+  workflow_dispatch:   # adds a "Run workflow" button for manual runs
+
+permissions:
+  contents: write   # lets the script push the refreshed files to this repo
+  issues: write     # lets the job open an issue when links rotate
+
+concurrency:
+  group: propbetiq-publish   # NFL and NBA never publish at the same time
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      GH_PUSH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      PROPBETIQ_ROTATION_FILE: url_rotation.R
+      PROPBETIQ_SLUGS_FILE: .current_slugs.json
+      TZ: America/Los_Angeles
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          cache-version: 1
+          packages: |
+            any::tidyverse
+            any::nflfastR
+            any::nflreadr
+            any::nflplotR
+            any::flexdashboard
+            any::rvest
+            any::caret
+            any::ggpubr
+            any::knitr
+            any::broom
+            any::gridExtra
+            any::formattable
+            any::markdown
+            any::magick
+            any::highcharter
+            any::extrafont
+            any::cowplot
+            any::fmsb
+            any::shiny
+            any::fontawesome
+            any::bslib
+            any::plotly
+            any::ggbreak
+            any::hoopR
+            any::crosstalk
+            any::htmltools
+            any::httr
+            any::jsonlite
+            any::progressr
+            any::logger
+            any::glue
+            any::lubridate
+            any::arrow
+            any::future
+            any::furrr
+            any::stringi
+            any::base64enc
+
+      - name: Remember current link slugs
+        run: cp .current_slugs.json /tmp/slugs_before.json
+
+      - name: Run NFL.R
+        run: Rscript NFL.R
+
+      - name: Check the site was actually updated
+        run: |
+          git fetch --quiet origin main
+          if ! git log origin/main --since="6 hours ago" --grep="PropBetIQ NFL update" --oneline | grep -q .; then
+            echo "::error::NFL.R finished, but no NFL files were pushed to GitHub Pages. Check the 'Run NFL.R' log."
+            exit 1
+          fi
+
+      - name: Save rotated links and open a reminder issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if cmp -s /tmp/slugs_before.json .current_slugs.json; then
+            echo "Links unchanged."; exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .current_slugs.json
+          git commit -m "Rotate NFL link slugs $(date +%F)"
+          git pull --rebase --autostash origin main
+          git push origin HEAD:main
+          Rscript -e 'source("url_rotation.R"); print_current_urls()' > /tmp/urls.txt
+          gh issue create --title "NFL links rotated $(date +%F): update Patreon" \
+            --body "The NFL dashboard links changed. Update the Patreon posts with these:
+
+          \`\`\`
+          $(cat /tmp/urls.txt)
+          \`\`\`"
