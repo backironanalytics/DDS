@@ -10,6 +10,15 @@ pkgs <- c(
 
 invisible(lapply(pkgs, library, character.only = TRUE))
 
+# Email credentials: GitHub Actions uses the SMTP_PASSWORD secret; local runs use the gmail_creds file
+smtp_creds <- function() {
+  if (nzchar(Sys.getenv("SMTP_PASSWORD"))) {
+    blastula::creds_envvar(user = "ccraig2435@gmail.com", pass_envvar = "SMTP_PASSWORD", provider = "gmail")
+  } else {
+    blastula::creds_file("gmail_creds")
+  }
+}
+
 # ── Email notification — script started ───────────────────────────────────────
 script_start_time <- Sys.time()
 
@@ -33,7 +42,7 @@ You will receive another email when the run completes or if it fails.
     to          = "ccraig2435@gmail.com",
     from        = "ccraig2435@gmail.com",
     subject     = glue::glue("⏳ NBA Props Matrix Started — {format(Sys.Date(), '%b %d %Y')}"),
-    credentials = blastula::creds_file("gmail_creds")
+    credentials = smtp_creds()
   )
   message("Start notification email sent.")
 }, error = function(e) {
@@ -51,6 +60,8 @@ SLEEP_SEC   <- 1.5                  # polite delay per worker (keeps API happy)
 MAX_RETRIES <- 5                    # retry attempts per game on API failure
 N_WORKERS   <- 3                    # parallel workers — don't exceed 6 or ESPN
 # will rate-limit you. 4 is the safe default.
+
+source(Sys.getenv("PROPBETIQ_ROTATION_FILE", "C:/Users/ccrai/OneDrive/Documents/DDS/url_rotation.R"))
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 dir.create(DATA_DIR, recursive = TRUE, showWarnings = FALSE)
@@ -418,10 +429,11 @@ scheduleDate <- "2025-10-01"
 
 #Season Identifier
 
-current_season <- "2025-26"
-last_season <- "2024-25"
-season_current <- 2026
-season_previous <- 2025
+current_season_label  <- "2026-27"
+prior_season_label    <- "2025-26"
+season_current        <- 2027
+season_previous       <- 2026
+
 
 color_set <- viridis::magma(5)
 
@@ -483,42 +495,138 @@ library(nbastatR)
 
 Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
 
-gamedata <- nbastatR::game_logs(seasons = season_previous, result_types = "team", season_types = c("Regular Season","Playoffs"))
+# ── Prior season team data — always available (includes Regular + Playoffs) ──
+message("Loading prior season (", prior_season_label, ") team game data...")
+gamedata_prior <- nbastatR::game_logs(
+  seasons      = season_previous,
+  result_types = "team",
+  season_types = c("Regular Season", "Playoffs")
+)
+message("  Loaded ", nrow(gamedata_prior), " prior season team games")
+
+# ── Current season team data — may not exist yet pre-Oct 21 ──────────────────
+message("Attempting current season (", current_season_label, ") team game data...")
 gamedata_current <- tryCatch({
-  nbastatR::game_logs(
-    seasons      = season_current,
-    result_types = "team",
-    season_types = c("Regular Season", "Playoffs")
-  )
+  data <- tryCatch({
+    nbastatR::game_logs(
+      seasons      = season_current,
+      result_types = "team",
+      season_types = c("Regular Season", "Playoffs")
+    )
+  }, error = function(e) {
+    message("  Playoffs not available yet — Regular Season only")
+    nbastatR::game_logs(
+      seasons      = season_current,
+      result_types = "team",
+      season_types = "Regular Season"
+    )
+  })
+  if (nrow(data) == 0) {
+    message("  Current season data returned 0 rows — treating as unavailable")
+    NULL
+  } else {
+    message("  Loaded ", nrow(data), " current season team games")
+    data
+  }
 }, error = function(e) {
-  message("Playoffs not available yet — falling back to Regular Season only")
-  nbastatR::game_logs(
-    seasons      = season_current,
-    result_types = "team",
-    season_types = c("Regular Season")
-  )
+  message("  Current season data not yet available: ", conditionMessage(e))
+  NULL
 })
 
-gamedata <- bind_rows(gamedata,gamedata_current)
+# ── Combine or fall back ─────────────────────────────────────────────────────
+if (!is.null(gamedata_current)) {
+  gamedata <- bind_rows(gamedata_prior, gamedata_current)
+  game_type_lookup <- gamedata_current %>%
+    distinct(dateGame, typeSeason) %>%
+    rename(game_date = dateGame, game_type = typeSeason)
+  message("✓ Combined team data: ", nrow(gamedata), " games")
+} else {
+  gamedata <- gamedata_prior
+  game_type_lookup <- gamedata_prior %>%
+    distinct(dateGame, typeSeason) %>%
+    rename(game_date = dateGame, game_type = typeSeason)
+  message("✓ Using only ", prior_season_label, " team data (", nrow(gamedata), " games)")
+}
 
-game_type_lookup <- gamedata_current |>
-  distinct(dateGame, typeSeason) |>
-  rename(game_date = dateGame, game_type = typeSeason)
+# ── Prior season player data — always available ─────────────────────────────
+message("Loading prior season player game logs...")
+playerdata_prior <- nbastatR::game_logs(
+  seasons      = season_previous,
+  result_types = "player",
+  season_types = c("Regular Season", "Playoffs")
+)
+message("  Loaded ", nrow(playerdata_prior), " prior season player games")
 
-playerdata <- tryCatch({
-  nbastatR::game_logs(
-    seasons      = season_previous:season_current,
-    result_types = "player",
-    season_types = c("Regular Season", "Playoffs")
-  )
+# ── Current season player data — may not exist yet ──────────────────────────
+message("Attempting current season player game logs...")
+playerdata_current <- tryCatch({
+  data <- tryCatch({
+    nbastatR::game_logs(
+      seasons      = season_current,
+      result_types = "player",
+      season_types = c("Regular Season", "Playoffs")
+    )
+  }, error = function(e) {
+    message("  Playoffs not available yet — Regular Season only")
+    nbastatR::game_logs(
+      seasons      = season_current,
+      result_types = "player",
+      season_types = "Regular Season"
+    )
+  })
+  if (nrow(data) == 0) NULL else data
 }, error = function(e) {
-  message("Playoffs not available yet — falling back to Regular Season only")
-  nbastatR::game_logs(
-    seasons      = season_previous:season_current,
-    result_types = "player",
-    season_types = c("Regular Season")
-  )
+  message("  Current season player data not yet available")
+  NULL
 })
+
+
+
+# ── Combine prior + current into unified playerdata ──────────────────────────
+playerdata <- if (!is.null(playerdata_current)) {
+  message("✓ Combining player data across both seasons")
+  bind_rows(playerdata_prior, playerdata_current)
+} else {
+  message("✓ Using only ", prior_season_label, " player data")
+  playerdata_prior
+}
+
+# Choose reference season for hit rate calculations
+current_season <- if (!is.null(playerdata_current) && nrow(playerdata_current) > 0) {
+    current_season <- current_season_label
+    # season_current stays as-is (2027) since we have current-season data
+  } else {
+    current_season <- prior_season_label
+    # Override season_current to prior season year — no current data exists yet
+    season_current <- season_previous
+  }
+last_season <- prior_season_label
+message("Hit rate calculations will reference season: ", current_season, " (year: ", season_current, ")")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ── Rookie + team-change detection ────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Rookie: player_id present in current-season data but NOT in prior season
+prior_player_ids <- unique(playerdata_prior$idPlayer)
+prior_player_ids <- prior_player_ids[!is.na(prior_player_ids)]
+
+# Team-change: each player's team in prior season (from their most recent prior game)
+prior_teams <- playerdata_prior %>%
+  arrange(idPlayer, desc(dateGame)) %>%
+  group_by(idPlayer) %>%
+  slice(1) %>%
+  ungroup() %>%
+  select(idPlayer, prior_team = slugTeam)
+
+# Player status lookup — one row per player with rookie + team-change flags
+player_status <- playerdata %>%
+  distinct(idPlayer) %>%
+  left_join(prior_teams, by = "idPlayer") %>%
+  mutate(is_rookie = !(idPlayer %in% prior_player_ids))
+
+message("✓ Rookie/team-change detection complete: ",
+        sum(player_status$is_rookie, na.rm = TRUE), " rookies identified")
 
 
 gameids<- playerdata %>% dplyr::group_by(idGame) %>% dplyr::summarize(n = n()) %>% pull(idGame)
@@ -780,42 +888,7 @@ df_enriched_all <- playerdata %>%
     pull(slugTeam) %>%
     head(1)
   
-  opp_info <- player_opponent_lookup %>%
-    filter(player == player_id) %>%
-    head(1)
   
-  if (nrow(opp_info) == 0) return(NULL)
-  
-  opp_abbrev  <- opp_info$opponent_abbrev
-  type_label  <- opp_info$type_label
-  
-  # Filter playerdata for regular season games against this opponent
-  player_df <- df_enriched |>
-    filter(
-      namePlayer == player_id,
-      slugOpponent == opp_abbrev
-    )
-  
-  name_val <- player_id
-  
-  # If no games against this opponent return 0s
-  if (nrow(player_df) == 0) {
-    return(
-      bind_rows(lapply(stat_names, function(stat) {
-        bind_rows(lapply(hit_rate_seq, function(line) {
-          tibble(
-            namePlayer = name_val,
-            idPlayer   = player_id,
-            slugTeam   = slug_team,
-            metric     = stat,
-            OU         = line,
-            hit_rate   = 0,
-            n_games    = 0L
-          )
-        }))
-      }))
-    )
-  }
   
   player_df <- pbp_data %>% filter(namePlayer == player_id)
   
@@ -850,6 +923,7 @@ compute_player_hit_rates_away         <- function(p) .compute_hit_rates(p, df_en
 compute_player_hit_rates_playoffs     <- function(p) .compute_hit_rates(p, df_enriched_playoffs)
 compute_player_hit_rates_playoff_home <- function(p) .compute_hit_rates(p, df_enriched_playoffs_home)
 compute_player_hit_rates_playoff_away <- function(p) .compute_hit_rates(p, df_enriched_playoffs_away)
+compute_player_hit_rates_all <-          function(p) .compute_hit_rates(p, df_enriched_all)
 compute_player_hit_rates_five         <- function(p) {
   .compute_hit_rates(
     p,
@@ -947,7 +1021,7 @@ clusterExport(cl, varlist = c(
   "all_rosters_raw", "stat_names", "hit_rate_seq",
   "df_enriched", "df_enriched_home", "df_enriched_away",
   "df_enriched_playoffs", "df_enriched_playoffs_home", "df_enriched_playoffs_away",
-  "df_enriched_all", ".compute_hit_rates", "player_opponent_lookup"
+  "df_enriched_all", ".compute_hit_rates", "player_opponent_lookup","compute_player_hit_rates_all"
 ))
 
 
@@ -967,6 +1041,7 @@ results_raw_playoff_away <- run_split("compute_player_hit_rates_playoff_away", "
 results_raw_five         <- run_split("compute_player_hit_rates_five",         "Last 5")
 results_raw_ten          <- run_split("compute_player_hit_rates_ten",          "Last 10")
 results_raw_opponent     <- run_split("compute_player_hit_rates_opponent", "vs Opponent")
+results_raw_all          <- run_split("compute_player_hit_rates_all", "Full Season")
 
 
 # ── Collect ────────────────────────────────────────────────────────────────────
@@ -979,6 +1054,7 @@ results_playoff_away <- bind_rows(results_raw_playoff_away)
 results_five         <- bind_rows(results_raw_five)
 results_ten          <- bind_rows(results_raw_ten)
 results_opponent     <- bind_rows(results_raw_opponent)
+results_all          <- bind_rows(results_raw_all)
 
 message("Done. Rows: ", nrow(results), " | Players: ", n_distinct(results$idPlayer))
 
@@ -1012,7 +1088,8 @@ pivoted <- list(
   pivot_and_tag(results_playoff_away, "Playoff Away Games"),
   pivot_and_tag(results_five,         "Last 5"),
   pivot_and_tag(results_ten,          "Last 10"),
-  pivot_and_tag(results_opponent,     "vs Opponent")
+  pivot_and_tag(results_opponent,     "vs Opponent"),
+  pivot_and_tag(results_all,          "Full Season")
 )
 
 # ── Combine by metric ──────────────────────────────────────────────────────────
@@ -1112,9 +1189,12 @@ q1_scoring_raw_playoff_away  <- q1_scoring_raw_playoffs %>% filter(game_location
 # Last 5/10 pull from ALL game types combined
 q1_scoring_raw_all <- bind_rows(q1_scoring_raw, q1_scoring_raw_playoffs)
 
-q1_pts_games <- q1_scoring_raw |>
-  dplyr::count(scorer, name = "n_games") |>
-  dplyr::rename(Player = scorer)
+q1_pts_games <- playerdata |>
+  dplyr::filter(typeSeason == "Regular Season", yearSeason == season_current,
+                namePlayer %in% next_team_batch$PLAYER) |>
+  dplyr::group_by(namePlayer) |>
+  dplyr::summarise(n_games = n(), .groups = "drop") |>
+  dplyr::rename(Player = namePlayer)
 
 # ── Helper: compute hit rates from a scoring raw dataset ──────────────────────
 compute_q1_hit_rates <- function(scoring_raw) {
@@ -1156,6 +1236,7 @@ q1_hit_rates_playoff_home <- compute_q1_hit_rates(q1_scoring_raw_playoff_home)
 q1_hit_rates_playoff_away <- compute_q1_hit_rates(q1_scoring_raw_playoff_away)
 q1_hit_rates_five         <- compute_q1_hit_rates_last_n(q1_scoring_raw_all, 5)
 q1_hit_rates_ten          <- compute_q1_hit_rates_last_n(q1_scoring_raw_all, 10)
+q1_hit_rates_all          <- compute_q1_hit_rates(q1_scoring_raw_all)
 
 # ── Helper: pivot and tag with guard for empty data ───────────────────────────
 pivot_q1 <- function(df, type_label, metric_label) {
@@ -1177,6 +1258,7 @@ q1_hit_rates_pivoted_playoff_home <- pivot_q1(q1_hit_rates_playoff_home, "Playof
 q1_hit_rates_pivoted_playoff_away <- pivot_q1(q1_hit_rates_playoff_away, "Playoff Away Games",  "q1_pts")
 q1_hit_rates_pivoted_five         <- pivot_q1(q1_hit_rates_five,         "Last 5",              "q1_pts")
 q1_hit_rates_pivoted_ten          <- pivot_q1(q1_hit_rates_ten,          "Last 10",             "q1_pts")
+q1_hit_rates_pivoted_all          <- pivot_q1(q1_hit_rates_all,          "Full Season",         "q1_pts")
 
 # ── Combine — filter out empty tibbles before binding ─────────────────────────
 q1_hit_rates_pivoted_combined <- list(
@@ -1187,7 +1269,8 @@ q1_hit_rates_pivoted_combined <- list(
   q1_hit_rates_pivoted_playoff_home,
   q1_hit_rates_pivoted_playoff_away,
   q1_hit_rates_pivoted_five,
-  q1_hit_rates_pivoted_ten
+  q1_hit_rates_pivoted_ten,
+  q1_hit_rates_pivoted_all
 ) |>
   Filter(function(df) nrow(df) > 0, x = _) |>
   bind_rows()
@@ -1250,9 +1333,12 @@ q1_assists_raw_playoff_away  <- q1_assists_raw_playoffs %>% filter(game_location
 # Last 5/10 pull from ALL game types combined
 q1_assists_raw_all <- bind_rows(q1_assists_raw, q1_assists_raw_playoffs)
 
-q1_ast_games <- q1_assists_raw |>
-  dplyr::count(assister, name = "n_games") |>
-  dplyr::rename(Player = assister)
+q1_ast_games <- playerdata |>
+  dplyr::filter(typeSeason == "Regular Season", yearSeason == season_current,
+                namePlayer %in% next_team_batch$PLAYER) |>
+  dplyr::group_by(namePlayer) |>
+  dplyr::summarise(n_games = n(), .groups = "drop") |>
+  dplyr::rename(Player = namePlayer)
 
 # ── Helper: compute hit rates ─────────────────────────────────────────────────
 compute_q1_ast_hit_rates <- function(assists_raw) {
@@ -1295,6 +1381,7 @@ q1_hit_rates_ast_playoff_home <- compute_q1_ast_hit_rates(q1_assists_raw_playoff
 q1_hit_rates_ast_playoff_away <- compute_q1_ast_hit_rates(q1_assists_raw_playoff_away)
 q1_hit_rates_ast_five         <- compute_q1_ast_hit_rates_last_n(q1_assists_raw_all, 5)
 q1_hit_rates_ast_ten          <- compute_q1_ast_hit_rates_last_n(q1_assists_raw_all, 10)
+q1_hit_rates_ast_all          <- compute_q1_ast_hit_rates(q1_assists_raw_all)
 
 # ── Helper: pivot and tag with guard for empty data ───────────────────────────
 pivot_q1_ast <- function(df, type_label) {
@@ -1316,6 +1403,7 @@ q1_hit_rates_ast_pivoted_playoff_home <- pivot_q1_ast(q1_hit_rates_ast_playoff_h
 q1_hit_rates_ast_pivoted_playoff_away <- pivot_q1_ast(q1_hit_rates_ast_playoff_away, "Playoff Away Games")
 q1_hit_rates_ast_pivoted_five         <- pivot_q1_ast(q1_hit_rates_ast_five,         "Last 5")
 q1_hit_rates_ast_pivoted_ten          <- pivot_q1_ast(q1_hit_rates_ast_ten,          "Last 10")
+q1_hit_rates_ast_pivoted_all          <- pivot_q1_ast(q1_hit_rates_ast_all,          "Full Season")
 
 # ── Combine ────────────────────────────────────────────────────────────────────
 q1_hit_rates_ast_pivoted_combined <- list(
@@ -1326,7 +1414,8 @@ q1_hit_rates_ast_pivoted_combined <- list(
   q1_hit_rates_ast_pivoted_playoff_home,
   q1_hit_rates_ast_pivoted_playoff_away,
   q1_hit_rates_ast_pivoted_five,
-  q1_hit_rates_ast_pivoted_ten
+  q1_hit_rates_ast_pivoted_ten,
+  q1_hit_rates_ast_pivoted_all
 ) |>
   Filter(function(df) nrow(df) > 0, x = _) |>
   bind_rows()
@@ -1386,9 +1475,12 @@ q1_rebounds_raw_playoff_away <- q1_rebounds_raw_playoffs %>% filter(game_locatio
 # Last 5/10 pull from ALL game types combined
 q1_rebounds_raw_all <- bind_rows(q1_rebounds_raw, q1_rebounds_raw_playoffs)
 
-q1_reb_games <- q1_rebounds_raw |>
-  dplyr::count(rebounder, name = "n_games") |>
-  dplyr::rename(Player = rebounder)
+q1_reb_games <- playerdata |>
+  dplyr::filter(typeSeason == "Regular Season", yearSeason == season_current,
+                namePlayer %in% next_team_batch$PLAYER) |>
+  dplyr::group_by(namePlayer) |>
+  dplyr::summarise(n_games = n(), .groups = "drop") |>
+  dplyr::rename(Player = namePlayer)
 
 # ── Helper: compute hit rates ─────────────────────────────────────────────────
 compute_q1_reb_hit_rates <- function(rebounds_raw) {
@@ -1431,6 +1523,7 @@ q1_hit_rates_reb_playoff_home <- compute_q1_reb_hit_rates(q1_rebounds_raw_playof
 q1_hit_rates_reb_playoff_away <- compute_q1_reb_hit_rates(q1_rebounds_raw_playoff_away)
 q1_hit_rates_reb_five         <- compute_q1_reb_hit_rates_last_n(q1_rebounds_raw_all, 5)
 q1_hit_rates_reb_ten          <- compute_q1_reb_hit_rates_last_n(q1_rebounds_raw_all, 10)
+q1_hit_rates_reb_all          <- compute_q1_reb_hit_rates(q1_rebounds_raw_all)
 
 # ── Helper: pivot and tag with guard for empty data ───────────────────────────
 pivot_q1_reb <- function(df, type_label) {
@@ -1452,6 +1545,7 @@ q1_hit_rates_reb_pivoted_playoff_home <- pivot_q1_reb(q1_hit_rates_reb_playoff_h
 q1_hit_rates_reb_pivoted_playoff_away <- pivot_q1_reb(q1_hit_rates_reb_playoff_away, "Playoff Away Games")
 q1_hit_rates_reb_pivoted_five         <- pivot_q1_reb(q1_hit_rates_reb_five,         "Last 5")
 q1_hit_rates_reb_pivoted_ten          <- pivot_q1_reb(q1_hit_rates_reb_ten,          "Last 10")
+q1_hit_rates_reb_pivoted_all          <- pivot_q1_reb(q1_hit_rates_reb_all,          "Full Season")
 
 # ── Combine ────────────────────────────────────────────────────────────────────
 q1_hit_rates_reb_pivoted_combined <- list(
@@ -1462,10 +1556,96 @@ q1_hit_rates_reb_pivoted_combined <- list(
   q1_hit_rates_reb_pivoted_playoff_home,
   q1_hit_rates_reb_pivoted_playoff_away,
   q1_hit_rates_reb_pivoted_five,
-  q1_hit_rates_reb_pivoted_ten
+  q1_hit_rates_reb_pivoted_ten,
+  q1_hit_rates_reb_pivoted_all 
 ) |>
   Filter(function(df) nrow(df) > 0, x = _) |>
   bind_rows()
+
+
+# ── Q1 Season Averages (for Avg column in stats table) ────────────────────────
+# Uses the full-season raw datasets (RS + Playoffs combined via _all suffix)
+
+q1_avg_pts_all <- q1_scoring_raw_all |>
+  group_by(scorer) |>
+  summarise(avg_q1_pts = round(mean(pts,  na.rm = TRUE), 1), .groups = "drop") |>
+  rename(Player = scorer) %>% mutate(Type = "Full Season")
+
+q1_avg_pts_home <- q1_scoring_raw_home |>
+  group_by(scorer) |>
+  summarise(avg_q1_pts = round(mean(pts,  na.rm = TRUE), 1), .groups = "drop") |>
+  rename(Player = scorer) %>% mutate(Type = "Home Games")
+
+q1_avg_pts_away <- q1_scoring_raw_away |>
+  group_by(scorer) |>
+  summarise(avg_q1_pts = round(mean(pts,  na.rm = TRUE), 1), .groups = "drop") |>
+  rename(Player = scorer) %>% mutate(Type = "Away Games")
+
+q1_avg_pts_season <- q1_scoring_raw |>
+  group_by(scorer) |>
+  summarise(avg_q1_pts = round(mean(pts,  na.rm = TRUE), 1), .groups = "drop") |>
+  rename(Player = scorer) %>% mutate(Type = "Regular Season")
+
+q1_avg_pts_playoffs <- q1_scoring_raw_playoffs |>
+  group_by(scorer) |>
+  summarise(avg_q1_pts = round(mean(pts,  na.rm = TRUE), 1), .groups = "drop") |>
+  rename(Player = scorer) %>% mutate(Type = "Playoffs")
+
+q1_avg_pts <- bind_rows(q1_avg_pts_all,q1_avg_pts_away,q1_avg_pts_home,q1_avg_pts_playoffs,q1_avg_pts_season)
+
+q1_avg_ast_all <- q1_assists_raw_all |>
+  group_by(assister) |>
+  summarise(avg_q1_ast = round(mean(ast,  na.rm = TRUE), 1), .groups = "drop") |>
+  rename(Player = assister) %>% mutate(Type = "Full Season")
+
+q1_avg_ast_home <- q1_assists_raw_home |>
+  group_by(assister) |>
+  summarise(avg_q1_ast = round(mean(ast,  na.rm = TRUE), 1), .groups = "drop") |>
+  rename(Player = assister) %>% mutate(Type = "Home Games")
+
+q1_avg_ast_away <- q1_assists_raw_away |>
+  group_by(assister) |>
+  summarise(avg_q1_ast = round(mean(ast,  na.rm = TRUE), 1), .groups = "drop") |>
+  rename(Player = assister) %>% mutate(Type = "Away Games")
+
+q1_avg_ast_season <- q1_assists_raw |>
+  group_by(assister) |>
+  summarise(avg_q1_ast = round(mean(ast,  na.rm = TRUE), 1), .groups = "drop") |>
+  rename(Player = assister) %>% mutate(Type = "Regular Season")
+
+q1_avg_ast_playoffs <- q1_assists_raw_playoffs |>
+  group_by(assister) |>
+  summarise(avg_q1_ast = round(mean(ast,  na.rm = TRUE), 1), .groups = "drop") |>
+  rename(Player = assister) %>% mutate(Type = "Playoffs")
+
+q1_avg_ast <- bind_rows(q1_avg_ast_all,q1_avg_ast_away,q1_avg_ast_home,q1_avg_ast_playoffs,q1_avg_ast_season)
+
+q1_avg_reb_all <- q1_rebounds_raw_all |>
+  group_by(rebounder) |>
+  summarise(avg_q1_reb = round(mean(treb, na.rm = TRUE), 1), .groups = "drop") |>
+  rename(Player = rebounder) %>% mutate(Type = "Full Season")
+
+q1_avg_reb_season <- q1_rebounds_raw |>
+  group_by(rebounder) |>
+  summarise(avg_q1_reb = round(mean(treb, na.rm = TRUE), 1), .groups = "drop") |>
+  rename(Player = rebounder) %>% mutate(Type = "Regular Season")
+
+q1_avg_reb_playoffs <- q1_rebounds_raw_playoffs |>
+  group_by(rebounder) |>
+  summarise(avg_q1_reb = round(mean(treb, na.rm = TRUE), 1), .groups = "drop") |>
+  rename(Player = rebounder) %>% mutate(Type = "Playoffs")
+
+q1_avg_reb_home <- q1_rebounds_raw_home |>
+  group_by(rebounder) |>
+  summarise(avg_q1_reb = round(mean(treb, na.rm = TRUE), 1), .groups = "drop") |>
+  rename(Player = rebounder) %>% mutate(Type = "Homes Games")
+
+q1_avg_reb_away <- q1_rebounds_raw_away |>
+  group_by(rebounder) |>
+  summarise(avg_q1_reb = round(mean(treb, na.rm = TRUE), 1), .groups = "drop") |>
+  rename(Player = rebounder) %>% mutate(Type = "Away Games")
+
+q1_avg_reb <- bind_rows(q1_avg_reb_all,q1_avg_reb_away,q1_avg_reb_home,q1_avg_reb_playoffs,q1_avg_reb_season)
 
 
    # updated to include n_games column
@@ -2498,60 +2678,6 @@ q3reb_conditional_bucketed <- bucket_conditional(
 season_start_date <- as.Date(scheduleDate)
 days_into_season  <- as.numeric(Sys.Date() - season_start_date)
 
-MIN_GAMES_CONDITIONAL <- dplyr::case_when(
-  days_into_season < 30  ~ 5,    # October — early season, small samples ok
-  days_into_season < 60  ~ 10,   # November
-  days_into_season < 90  ~ 20,   # December
-  days_into_season < 120 ~ 30,   # January
-  days_into_season < 150 ~ 40,   # February
-  days_into_season < 180 ~ 50,   # March — where you are now
-  TRUE                   ~ 60    # April playoffs — high bar
-)
-
-# ── Points ─────────────────────────────────────────────────────────────────────
-pts_eligible_scorers <- pts_conditional_bucketed |>
-  group_by(scorer) |>
-  summarise(total_games = sum(n_games), .groups = "drop") |>
-  filter(total_games >= MIN_GAMES_CONDITIONAL) |>
-  pull(scorer)
-
-pts_conditional_bucketed  <- pts_conditional_bucketed  |> filter(scorer   %in% pts_eligible_scorers)
-pts_conditional           <- pts_conditional           |> filter(scorer   %in% pts_eligible_scorers)
-
-# ── Assists ────────────────────────────────────────────────────────────────────
-ast_eligible_assisters <- ast_conditional_bucketed |>
-  group_by(assister) |>
-  summarise(total_games = sum(n_games), .groups = "drop") |>
-  filter(total_games >= MIN_GAMES_CONDITIONAL) |>
-  pull(assister)
-
-ast_conditional_bucketed  <- ast_conditional_bucketed  |> filter(assister %in% ast_eligible_assisters)
-ast_conditional           <- ast_conditional           |> filter(assister %in% ast_eligible_assisters)
-
-# ── Rebounds ───────────────────────────────────────────────────────────────────
-reb_eligible_rebounders <- reb_conditional_bucketed |>
-  group_by(rebounder) |>
-  summarise(total_games = sum(n_games), .groups = "drop") |>
-  filter(total_games >= MIN_GAMES_CONDITIONAL) |>
-  pull(rebounder)
-
-reb_conditional_bucketed  <- reb_conditional_bucketed  |> filter(rebounder %in% reb_eligible_rebounders)
-reb_conditional           <- reb_conditional           |> filter(rebounder %in% reb_eligible_rebounders)
-
-# ── Apply same filter to H1 and Q3 ────────────────────────────────────────────
-h1pts_conditional_bucketed <- h1pts_conditional_bucketed |> filter(scorer   %in% pts_eligible_scorers)
-h1pts_conditional          <- h1pts_conditional          |> filter(scorer   %in% pts_eligible_scorers)
-h1ast_conditional_bucketed <- h1ast_conditional_bucketed |> filter(assister %in% ast_eligible_assisters)
-h1ast_conditional          <- h1ast_conditional          |> filter(assister %in% ast_eligible_assisters)
-h1reb_conditional_bucketed <- h1reb_conditional_bucketed |> filter(rebounder %in% reb_eligible_rebounders)
-h1reb_conditional          <- h1reb_conditional          |> filter(rebounder %in% reb_eligible_rebounders)
-
-q3pts_conditional_bucketed <- q3pts_conditional_bucketed |> filter(scorer   %in% pts_eligible_scorers)
-q3pts_conditional          <- q3pts_conditional          |> filter(scorer   %in% pts_eligible_scorers)
-q3ast_conditional_bucketed <- q3ast_conditional_bucketed |> filter(assister %in% ast_eligible_assisters)
-q3ast_conditional          <- q3ast_conditional          |> filter(assister %in% ast_eligible_assisters)
-q3reb_conditional_bucketed <- q3reb_conditional_bucketed |> filter(rebounder %in% reb_eligible_rebounders)
-q3reb_conditional          <- q3reb_conditional          |> filter(rebounder %in% reb_eligible_rebounders)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # VS OPPONENT SPLIT — Q1 / H1 / Q3
@@ -3269,6 +3395,21 @@ build_actionable_q1reb <- function() {
 
 actionable_q1reb <- build_actionable_q1reb()
 
+# ── Normalized roster lookup for Q1 thumbnail joins ───────────────────────────
+# The PBP scorer/assister/rebounder names are accent-stripped (via normalize_name).
+# all_rosters_raw uses proper unicode. Join on the normalized key to handle
+# players like Dončić → Doncic, Schröder → Schroder, Topić → Topic.
+
+roster_logo_lookup <- all_rosters_raw |>
+  dplyr::mutate(name_key_norm = normalize_name(PLAYER)) |>
+  dplyr::select(name_key_norm, team_abbreviation) |>
+  dplyr::distinct() |>
+  dplyr::left_join(
+    teams[c("slugTeam", "urlThumbnailTeam")],
+    by = c("team_abbreviation" = "slugTeam")
+  ) |>
+  dplyr::select(name_key_norm, urlThumbnailTeam)
+
 
 # ── Matrix File Tables ───────────────────────────────
 
@@ -3333,43 +3474,151 @@ stl_blk_pivoted <- results_combined_stl_blk  %>%
   rename(Player = namePlayer) %>% relocate(c(Type,urlThumbnailTeam), .after =Player) %>% select(1:11)
 
 firstqpoints_pivoted <- q1_hit_rates_pivoted_combined %>%
+  dplyr::mutate(name_key_norm = normalize_name(scorer)) %>%
+  dplyr::left_join(roster_logo_lookup, by = "name_key_norm") %>%
+  dplyr::select(!c(metric)) %>%
+  rename(Player = scorer) %>% left_join(q1_avg_pts, by = c("Player","Type")) %>%
   left_join(
-    all_rosters_raw[c("PLAYER", "team_abbreviation")] %>%
-      rename(scorer = PLAYER, slugTeam = team_abbreviation),
-    by = "scorer"
+    bind_rows(
+      q1_pts_games |> dplyr::mutate(Type = "Regular Season"),
+      q1_pts_games |> dplyr::mutate(Type = "Home Games"),
+      q1_pts_games |> dplyr::mutate(Type = "Away Games"),
+      q1_pts_games |> dplyr::mutate(Type = "Last 5"),
+      q1_pts_games |> dplyr::mutate(Type = "Last 10"),
+      playerdata |>
+        dplyr::filter(typeSeason == "Playoffs", yearSeason == season_current,
+                      namePlayer %in% next_team_batch$PLAYER) |>
+        dplyr::group_by(namePlayer) |>
+        dplyr::summarise(n_games = n(), .groups = "drop") |>
+        dplyr::rename(Player = namePlayer) |>
+        dplyr::mutate(Type = "Playoffs"),
+      playerdata |>
+        dplyr::filter(typeSeason == "Playoffs", yearSeason == season_current,
+                      namePlayer %in% next_team_batch$PLAYER) |>
+        dplyr::group_by(namePlayer) |>
+        dplyr::summarise(n_games = n(), .groups = "drop") |>
+        dplyr::rename(Player = namePlayer) |>
+        dplyr::mutate(Type = "Playoff Home Games"),
+      playerdata |>
+        dplyr::filter(typeSeason == "Playoffs", yearSeason == season_current,
+                      namePlayer %in% next_team_batch$PLAYER) |>
+        dplyr::group_by(namePlayer) |>
+        dplyr::summarise(n_games = n(), .groups = "drop") |>
+        dplyr::rename(Player = namePlayer) |>
+        dplyr::mutate(Type = "Playoff Away Games"),
+      playerdata |>
+        dplyr::filter(yearSeason == season_current,
+                      namePlayer %in% next_team_batch$PLAYER) |>
+        dplyr::group_by(namePlayer) |>
+        dplyr::summarise(n_games = n(), .groups = "drop") |>
+        dplyr::rename(Player = namePlayer) |>
+        dplyr::mutate(Type = "Full Season")
+    ) |>
+      dplyr::mutate(name_key_norm = normalize_name(Player)) |>  # ← normalize here
+      dplyr::select(-Player),                                    # ← drop original name
+    by = c("name_key_norm", "Type")                             # ← join on norm key
   ) %>%
-  left_join(teams[c("slugTeam", "urlThumbnailTeam")], by = "slugTeam") %>%
-  select(!c(slugTeam, metric)) %>%
-  rename(Player = scorer) %>%
-  left_join(q1_pts_games, by = "Player") %>%
-  relocate(c(Type, urlThumbnailTeam, n_games), .after = Player) %>%
-  select(1:14)
+  dplyr::select(-name_key_norm) %>% 
+  relocate(c(Type, urlThumbnailTeam, n_games,avg_q1_pts), .after = Player) %>%
+  select(1:18)
 
 firstqassists_pivoted <- q1_hit_rates_ast_pivoted_combined %>%
+  dplyr::mutate(name_key_norm = normalize_name(assister)) %>%
+  dplyr::left_join(roster_logo_lookup, by = "name_key_norm") %>%
+  dplyr::select(!c(metric))  %>%
+  rename(Player = assister) %>% left_join(q1_avg_ast, by = c("Player","Type")) %>%
   left_join(
-    all_rosters_raw[c("PLAYER", "team_abbreviation")] %>%
-      rename(assister = PLAYER, slugTeam = team_abbreviation),
-    by = "assister"
+    bind_rows(
+      q1_ast_games |> dplyr::mutate(Type = "Regular Season"),
+      q1_ast_games |> dplyr::mutate(Type = "Home Games"),
+      q1_ast_games |> dplyr::mutate(Type = "Away Games"),
+      q1_ast_games |> dplyr::mutate(Type = "Last 5"),
+      q1_ast_games |> dplyr::mutate(Type = "Last 10"),
+      playerdata |>
+        dplyr::filter(typeSeason == "Playoffs", yearSeason == season_current,
+                      namePlayer %in% next_team_batch$PLAYER) |>
+        dplyr::group_by(namePlayer) |>
+        dplyr::summarise(n_games = n(), .groups = "drop") |>
+        dplyr::rename(Player = namePlayer) |>
+        dplyr::mutate(Type = "Playoffs"),
+      playerdata |>
+        dplyr::filter(typeSeason == "Playoffs", yearSeason == season_current,
+                      namePlayer %in% next_team_batch$PLAYER) |>
+        dplyr::group_by(namePlayer) |>
+        dplyr::summarise(n_games = n(), .groups = "drop") |>
+        dplyr::rename(Player = namePlayer) |>
+        dplyr::mutate(Type = "Playoff Home Games"),
+      playerdata |>
+        dplyr::filter(typeSeason == "Playoffs", yearSeason == season_current,
+                      namePlayer %in% next_team_batch$PLAYER) |>
+        dplyr::group_by(namePlayer) |>
+        dplyr::summarise(n_games = n(), .groups = "drop") |>
+        dplyr::rename(Player = namePlayer) |>
+        dplyr::mutate(Type = "Playoff Away Games"),
+      playerdata |>
+        dplyr::filter(yearSeason == season_current,
+                      namePlayer %in% next_team_batch$PLAYER) |>
+        dplyr::group_by(namePlayer) |>
+        dplyr::summarise(n_games = n(), .groups = "drop") |>
+        dplyr::rename(Player = namePlayer) |>
+        dplyr::mutate(Type = "Full Season")
+    ) |>
+      dplyr::mutate(name_key_norm = normalize_name(Player)) |>  # ← normalize here
+      dplyr::select(-Player),                                    # ← drop original name
+    by = c("name_key_norm", "Type")                             # ← join on norm key
   ) %>%
-  left_join(teams[c("slugTeam", "urlThumbnailTeam")], by = "slugTeam") %>%
-  select(!c(slugTeam, metric)) %>%
-  rename(Player = assister) %>%
-  left_join(q1_ast_games, by = "Player") %>%
-  relocate(c(Type, urlThumbnailTeam, n_games), .after = Player) %>%
-  select(1:12)
+  dplyr::select(-name_key_norm) %>%
+  relocate(c(Type, urlThumbnailTeam, n_games, avg_q1_ast), .after = Player) %>%
+  select(1:14)
 
 firstqrebounds_pivoted <- q1_hit_rates_reb_pivoted_combined %>%
+  dplyr::mutate(name_key_norm = normalize_name(rebounder)) %>%
+  dplyr::left_join(roster_logo_lookup, by = "name_key_norm") %>%
+  dplyr::select(!c(metric)) %>%
+  rename(Player = rebounder) %>% left_join(q1_avg_reb, by = c("Player","Type"))%>%
   left_join(
-    all_rosters_raw[c("PLAYER", "team_abbreviation")] %>%
-      rename(rebounder = PLAYER, slugTeam = team_abbreviation),
-    by = "rebounder"
+    bind_rows(
+      q1_reb_games |> dplyr::mutate(Type = "Regular Season"),
+      q1_reb_games |> dplyr::mutate(Type = "Home Games"),
+      q1_reb_games |> dplyr::mutate(Type = "Away Games"),
+      q1_reb_games |> dplyr::mutate(Type = "Last 5"),
+      q1_reb_games |> dplyr::mutate(Type = "Last 10"),
+      playerdata |>
+        dplyr::filter(typeSeason == "Playoffs", yearSeason == season_current,
+                      namePlayer %in% next_team_batch$PLAYER) |>
+        dplyr::group_by(namePlayer) |>
+        dplyr::summarise(n_games = n(), .groups = "drop") |>
+        dplyr::rename(Player = namePlayer) |>
+        dplyr::mutate(Type = "Playoffs"),
+      playerdata |>
+        dplyr::filter(typeSeason == "Playoffs", yearSeason == season_current,
+                      namePlayer %in% next_team_batch$PLAYER) |>
+        dplyr::group_by(namePlayer) |>
+        dplyr::summarise(n_games = n(), .groups = "drop") |>
+        dplyr::rename(Player = namePlayer) |>
+        dplyr::mutate(Type = "Playoff Home Games"),
+      playerdata |>
+        dplyr::filter(typeSeason == "Playoffs", yearSeason == season_current,
+                      namePlayer %in% next_team_batch$PLAYER) |>
+        dplyr::group_by(namePlayer) |>
+        dplyr::summarise(n_games = n(), .groups = "drop") |>
+        dplyr::rename(Player = namePlayer) |>
+        dplyr::mutate(Type = "Playoff Away Games"),
+      playerdata |>
+        dplyr::filter(yearSeason == season_current,
+                      namePlayer %in% next_team_batch$PLAYER) |>
+        dplyr::group_by(namePlayer) |>
+        dplyr::summarise(n_games = n(), .groups = "drop") |>
+        dplyr::rename(Player = namePlayer) |>
+        dplyr::mutate(Type = "Full Season")
+    ) |>
+      dplyr::mutate(name_key_norm = normalize_name(Player)) |>  # ← normalize here
+      dplyr::select(-Player),                                    # ← drop original name
+    by = c("name_key_norm", "Type")                             # ← join on norm key
   ) %>%
-  left_join(teams[c("slugTeam", "urlThumbnailTeam")], by = "slugTeam") %>%
-  select(!c(slugTeam, metric)) %>%
-  rename(Player = rebounder) %>%
-  left_join(q1_reb_games, by = "Player") %>%
-  relocate(c(Type, urlThumbnailTeam, n_games), .after = Player) %>%
-  select(1:11)
+  dplyr::select(-name_key_norm) %>%
+  relocate(c(Type, urlThumbnailTeam, n_games, avg_q1_reb), .after = Player) %>%
+  select(1:13)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FEATURED PLAYERS FOR EDGE CARDS
@@ -4298,224 +4547,802 @@ all_players_q3_reb <- purrr::map_dfr(player_list, safe_threshold,
 library(reactablefmtr)
 
 
+# # ══════════════════════════════════════════════════════════════════════════════
+# # HTML OUTPUT — wrapped in tryCatch for error email
+# # ══════════════════════════════════════════════════════════════════════════════
+# 
+# # Ensure output folders exist
+# dir.create("Starter", showWarnings = FALSE)
+# dir.create("Pro",     showWarnings = FALSE)
+# dir.create("Sharp",   showWarnings = FALSE)
+# source("save_self_contained.R", local = FALSE)
+# 
+# tryCatch({
+#   
+#   # ── Stats HTML ───────────────────────────────────────────────────────────────
+#   message("\nBuilding propiq_stats.html...")
+#   source("build_propiq_stats.R", local = FALSE)
+#   build_propiq_stats("Starter/propiq_stats.html")
+#   gc(); gc()
+#   message("✓ propiq_stats.html complete")
+#   
+#   # ── Gameday threshold HTML ────────────────────────────────────────────────────
+#   message("\nBuilding propiq_gameday.html...")
+#   source("build_propiq_html.R", local = FALSE)
+#   build_propiq_page("Pro/propiq_gameday.html")
+#   gc(); gc()
+#   message("✓ propiq_gameday.html complete")
+#   
+#   # ── Split HTML files ──────────────────────────────────────────────────────────
+#   message("\nBuilding split HTML files...")
+#   source("build_propiq_html_5.R", local = FALSE)
+#   
+#   matchup_str <- tryCatch({
+#     n_games <- matchup |>
+#       dplyr::filter(location == "Home") |>
+#       dplyr::distinct(Team) |>
+#       nrow()
+#     paste0(n_games, " games tonight")
+#   }, error = function(e) format(Sys.Date(), "%B %d, %Y"))
+#   
+#   build_split_page(
+#     output_file    = "Sharp/propiq_reg_season.html",
+#     split_filter   = "Regular Season",
+#     split_label    = "Regular Season",
+#     split_sublabel = "Full regular season sample",
+#     matchup_str    = matchup_str
+#   )
+#   gc()
+#   
+#   build_split_page(
+#     output_file    = "Sharp/propiq_home.html",
+#     split_filter   = "Home Games",
+#     split_label    = "Home Games",
+#     split_sublabel = "Regular season home games only",
+#     matchup_str    = matchup_str
+#   )
+#   gc()
+#   
+#   build_split_page(
+#     output_file    = "Sharp/propiq_away.html",
+#     split_filter   = "Away Games",
+#     split_label    = "Away Games",
+#     split_sublabel = "Regular season away games only",
+#     matchup_str    = matchup_str
+#   )
+#   gc()
+#   
+#   build_split_page(
+#     output_file    = "Sharp/propiq_playoffs.html",
+#     split_filter   = "Playoffs",
+#     split_label    = "Playoffs",
+#     split_sublabel = "Playoff games only",
+#     matchup_str    = matchup_str
+#   )
+#   gc()
+#   
+#   build_split_page(
+#     output_file    = "Sharp/propiq_last10.html",
+#     split_filter   = "Last 10",
+#     split_label    = "Last 10 Games",
+#     split_sublabel = "Most recent 10 games regardless of game type",
+#     matchup_str    = matchup_str
+#   )
+#   gc()
+#   
+#   build_split_page(
+#     output_file    = "Sharp/propiq_vs_opponent.html",
+#     vs_opponent    = TRUE,
+#     vs_type_values = vs_type_values,
+#     split_label    = "vs Tonight's Opponent",
+#     split_sublabel = "Regular season games against tonight's specific opponent",
+#     matchup_str    = matchup_str
+#   )
+#   gc(); gc()
+#   message("✓ All split HTML files complete")
+#   
+#   # ── Build index pages ────────────────────────────────────────────────────────
+#   build_propiq_index <- function(tier, output_file, links, matchup_str = "") {
+#     game_date <- tryCatch(
+#       format(as.Date(next_team_batch_date), "%A, %B %d %Y"),
+#       error = function(e) format(Sys.Date(), "%A, %B %d %Y")
+#     )
+#     link_cards <- paste(sapply(links, function(l) {
+#       glue::glue('
+#         <a href="{l$url}" target="_blank" style="display:block;background:#1C0F3A;
+#            border:1px solid #2D1A5A;border-radius:12px;padding:18px 24px;
+#            text-decoration:none;margin-bottom:12px;"
+#            onmouseover="this.style.background=\'#2A1650\'"
+#            onmouseout="this.style.background=\'#1C0F3A\'">
+#           <div style="font-family:Barlow Condensed,sans-serif;font-size:18px;
+#                       font-weight:800;color:#FFFFFF;margin-bottom:4px;">{l$label}</div>
+#           <div style="font-family:JetBrains Mono,monospace;font-size:11px;
+#                       color:#9B86C0;">{l$description}</div>
+#         </a>')
+#     }), collapse = "\n")
+#     html <- paste0('<!DOCTYPE html><html lang="en"><head>
+#       <meta charset="UTF-8">
+#       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+#       <title>PropIQ ', tier, ' \u2014 ', game_date, '</title>
+#       <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+#       <style>
+#         *{box-sizing:border-box;margin:0;padding:0;}
+#         body{background:#0A0518;color:#FFF;font-family:Barlow,sans-serif;
+#              min-height:100vh;display:flex;flex-direction:column;
+#              align-items:center;padding:40px 20px;}
+#         .container{width:100%;max-width:540px;}
+#         .logo{font-family:Barlow Condensed,sans-serif;font-size:36px;
+#               font-weight:900;text-align:center;}
+#         .logo span{color:#F5A623;}
+#         .badge{display:block;text-align:center;font-family:JetBrains Mono,monospace;
+#                font-size:11px;color:#F5A623;background:rgba(245,166,35,0.15);
+#                border:1px solid rgba(245,166,35,0.4);border-radius:4px;
+#                padding:3px 10px;letter-spacing:0.1em;margin:8px auto 4px;
+#                width:fit-content;}
+#         .date{font-family:JetBrains Mono,monospace;font-size:12px;
+#               color:#6B4DA0;text-align:center;margin-bottom:4px;}
+#         .matchups{font-size:13px;color:#9B86C0;text-align:center;margin-bottom:28px;}
+#         .section{font-family:JetBrains Mono,monospace;font-size:10px;
+#                  letter-spacing:0.15em;color:#6B4DA0;text-transform:uppercase;
+#                  margin-bottom:12px;}
+#         .footer{margin-top:28px;font-family:JetBrains Mono,monospace;
+#                 font-size:11px;color:#3D2A6B;text-align:center;}
+#       </style></head><body><div class="container">
+#       <div class="logo">Prop<span>IQ</span></div>
+#       <div class="badge">', toupper(tier), ' TIER</div>
+#       <div class="date">', game_date, '</div>
+#       <div class="matchups">', matchup_str, '</div>
+#       <div class="section">Select a report</div>',
+#                    link_cards,
+#                    '<div class="footer">Updated nightly \u00b7 Data through today\'s games</div>
+#       </div></body></html>')
+#     writeLines(html, output_file)
+#     message("  Index page saved: ", output_file)
+#     invisible(output_file)
+#   }
+#   
+#   base_url <- "https://backironanalytics.github.io/DDS"
+#   
+#   build_propiq_index(
+#     tier        = "Sharp",
+#     output_file = "Sharp/index.html",
+#     matchup_str = matchup_str,
+#     links = list(
+#       list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_reg_season.html",
+#            label="Regular Season",        description="Full season hit rates for tonight's players"),
+#       list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_home.html",
+#            label="Home Games",            description="Regular season home game splits"),
+#       list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_away.html",
+#            label="Away Games",            description="Regular season away game splits"),
+#       list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_playoffs.html",
+#            label="Playoffs",              description="Playoff game splits"),
+#       list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_last10.html",
+#            label="Last 10 Games",         description="Recent form — last 10 games"),
+#       list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_vs_opponent.html",
+#            label="vs Tonight's Opponent", description="Head-to-head splits against tonight's matchup")
+#     )
+#   )
+#   
+#   build_propiq_index(
+#     tier        = "Pro",
+#     output_file = "Pro/index.html",
+#     matchup_str = matchup_str,
+#     links = list(
+#       list(url="https://backironanalytics.github.io/DDS/Pro/propiq_gameday.html",
+#            label="Game Day Thresholds",
+#            description="Q1 / H1 / Q3 threshold analysis for tonight's players")
+#     )
+#   )
+#   
+#   build_propiq_index(
+#     tier        = "Starter",
+#     output_file = "Starter/index.html",
+#     matchup_str = matchup_str,
+#     links = list(
+#       list(url="https://backironanalytics.github.io/DDS/Starter/propiq_stats.html",
+#            label="Hit Rate Stats",
+#            description="Full game hit rates — Regular Season and Playoffs")
+#     )
+#   )
+#   
+#   message("✓ Index pages complete")
+#   
+#   # ── Success email ─────────────────────────────────────────────────────────────
+#   duration <- round(difftime(Sys.time(), script_start_time, units = "mins"), 1)
+#   
+#   output_files <- c(
+#     "Starter/propiq_stats.html",
+#     "Pro/propiq_gameday.html",
+#     "Sharp/propiq_reg_season.html",
+#     "Sharp/propiq_home.html",
+#     "Sharp/propiq_away.html",
+#     "Sharp/propiq_playoffs.html",
+#     "Sharp/propiq_last10.html",
+#     "Sharp/propiq_vs_opponent.html"
+#   )
+#   
+#   file_rows <- paste(
+#     sapply(output_files, function(f) {
+#       if (file.exists(f)) {
+#         size_mb <- round(file.size(f) / 1024 / 1024, 1)
+#         glue::glue("| {f} | {size_mb} MB \u2705 |")
+#       } else {
+#         glue::glue("| {f} | Not found \u274c |")
+#       }
+#     }),
+#     collapse = "\n"
+#   )
+#   
+#   game_date_str <- tryCatch(
+#     format(as.Date(next_team_batch_date), "%A, %B %d %Y"),
+#     error = function(e) format(Sys.Date(), "%A, %B %d %Y")
+#   )
+#   
+#   success_email <- blastula::compose_email(
+#     body = blastula::md(glue::glue(
+#       "## PropIQ \u2014 Nightly Run Complete \u2705
+# 
+#       | | |
+#       |---|---|
+#       | **Game Date** | {game_date_str} |
+#       | **Started** | {format(script_start_time, '%I:%M %p')} |
+#       | **Finished** | {format(Sys.time(), '%I:%M %p')} |
+#       | **Duration** | {duration} minutes |
+# 
+#       ## Output Files
+# 
+#       | File | Size |
+#       |---|---|
+#       {file_rows}
+#       "
+#     ))
+#   )
+#   
+#   blastula::smtp_send(
+#     success_email,
+#     to          = "ccraig2435@gmail.com",
+#     from        = "ccraig2435@gmail.com",
+#     subject     = glue::glue("\u2705 PropIQ Ready \u2014 {game_date_str}"),
+#     credentials = blastula::creds_file("gmail_creds")
+#   )
+#   
+#   message("\u2705 All done. Total time: ", duration, " minutes.")
+#   
+# }, error = function(e) {
+#   
+#   duration <- round(difftime(Sys.time(), script_start_time, units = "mins"), 1)
+#   
+#   error_email <- blastula::compose_email(
+#     body = blastula::md(glue::glue(
+#       "## PropIQ \u2014 Nightly Run FAILED \u274c
+# 
+#       | | |
+#       |---|---|
+#       | **Date** | {format(Sys.Date(), '%A, %B %d %Y')} |
+#       | **Started** | {format(script_start_time, '%I:%M %p')} |
+#       | **Failed after** | {duration} minutes |
+# 
+#       ## Error
+# 
+#       {conditionMessage(e)}
+#       "
+#     ))
+#   )
+#   
+#   blastula::smtp_send(
+#     error_email,
+#     to          = "ccraig2435@gmail.com",
+#     from        = "ccraig2435@gmail.com",
+#     subject     = glue::glue("\u274c PropIQ FAILED \u2014 {format(Sys.Date(), '%b %d %Y')}"),
+#     credentials = blastula::creds_file("gmail_creds")
+#   )
+#   
+#   message("\u274c Failed after ", duration, " minutes: ", conditionMessage(e))
+#   stop(e)
+#   
+# })
+
+
+# # ══════════════════════════════════════════════════════════════════════════════
+# # PUSH TO GITHUB PAGES
+# # ══════════════════════════════════════════════════════════════════════════════
+# 
+# push_to_github <- function() {
+#   
+#   token_file <- "C:/Users/ccrai/OneDrive/Documents/.github_token.txt"
+#   github_token <- readLines(token_file, warn = FALSE)[1]   # paste your token here
+#   github_user  <- "backironanalytics"     # your GitHub username
+#   github_repo  <- "DDS"       # your repo name
+#   
+#   # Files to push — local path → github path
+#   files_to_push <- list(
+#     list(local = "Starter/propiq_stats.html",       remote = "Starter/propiq_stats.html"),
+#     list(local = "Pro/propiq_gameday.html",          remote = "Pro/propiq_gameday.html"),
+#     list(local = "Sharp/propiq_reg_season.html",     remote = "Sharp/propiq_reg_season.html"),
+#     list(local = "Sharp/propiq_home.html",           remote = "Sharp/propiq_home.html"),
+#     list(local = "Sharp/propiq_away.html",           remote = "Sharp/propiq_away.html"),
+#     list(local = "Sharp/propiq_playoffs.html",       remote = "Sharp/propiq_playoffs.html"),
+#     list(local = "Sharp/propiq_last10.html",         remote = "Sharp/propiq_last10.html"),
+#     list(local = "Sharp/propiq_vs_opponent.html",    remote = "Sharp/propiq_vs_opponent.html"),
+#     list(local = "Sharp/index.html",                 remote = "Sharp/index.html")
+#   )
+#   
+#   base_url <- paste0("https://api.github.com/repos/",
+#                      github_user, "/", github_repo, "/contents/")
+#   
+#   headers <- httr::add_headers(
+#     Authorization = paste("token", github_token),
+#     Accept        = "application/vnd.github.v3+json"
+#   )
+#   
+#   for (f in files_to_push) {
+#     
+#     if (!file.exists(f$local)) {
+#       message("  Skipping missing file: ", f$local)
+#       next
+#     }
+#     
+#     message("  Pushing ", f$remote, "...")
+#     
+#     # Read and base64 encode the file
+#     raw_bytes    <- readBin(f$local, "raw", file.size(f$local))
+#     encoded      <- base64enc::base64encode(raw_bytes)
+#     
+#     # Check if file already exists on GitHub (need SHA to update)
+#     existing <- httr::GET(paste0(base_url, f$remote), headers)
+#     sha      <- NULL
+#     if (httr::status_code(existing) == 200) {
+#       sha <- httr::content(existing)$sha
+#     }
+#     
+#     # Build request body
+#     body <- list(
+#       message = paste0("PropIQ update ", format(Sys.Date(), "%Y-%m-%d")),
+#       content = encoded
+#     )
+#     if (!is.null(sha)) body$sha <- sha
+#     
+#     # Push to GitHub
+#     result <- httr::PUT(
+#       url    = paste0(base_url, f$remote),
+#       config = headers,
+#       body   = jsonlite::toJSON(body, auto_unbox = TRUE),
+#       httr::content_type_json()
+#     )
+#     
+#     if (httr::status_code(result) %in% c(200, 201)) {
+#       message("    ✓ ", f$remote, " pushed successfully")
+#     } else {
+#       message("    ✗ Failed to push ", f$remote,
+#               " — status: ", httr::status_code(result))
+#     }
+#     
+#     Sys.sleep(0.5)  # be nice to GitHub API rate limits
+#   }
+# }
+# 
+# tryCatch({
+#   message("\nPushing files to GitHub Pages...")
+#   push_to_github()
+#   message("✓ GitHub push complete")
+# }, error = function(e) {
+#   message("GitHub push failed (non-fatal): ", conditionMessage(e))
+# })
+# 
+
+
+
+# #====Delete This======
+# 
+# qs <- tibble(qs = c(1,2,3,4))
+# 
+# test_build <- function(game_type_filter) {
+#   
+#   # ── Step 1: Games where each player actually played ────────────────────────
+#   # playerdata is your authoritative "player appeared in this game" source
+#   games_played <- playerdata %>%
+#     filter(
+#       typeSeason == game_type_filter,
+#       yearSeason == season_current,
+#       minutes    >  0                          # actually played
+#     ) %>%
+#     inner_join(
+#       next_game_players %>% distinct(namePlayer = scorer),
+#       by = "namePlayer"
+#     ) %>%
+#     select(namePlayer, dateGame, slugTeam) %>%
+#     rename(
+#       scorer              = namePlayer,
+#       game_date           = dateGame,
+#       team_abbreviation   = slugTeam
+#     )
+#   
+#   # ── Step 2: Full spine — every player × game × quarter (1–4) ──────────────
+#   # Every game they played gets all 4 quarters, guaranteed
+#   spine <- games_played %>%
+#     cross_join(tibble(period_number = 1:4))%>%
+#     mutate(name_key_norm = normalize_name(scorer))
+#   
+#   # ── Step 3: Actual Q pts from play-by-play (scoring plays only) ────────────
+#   pts_actual <- play_play %>%
+#     filter(
+#       game_type     == game_type_filter,
+#       period_number %in% 1:4,
+#       scoring_play  == TRUE,
+#       !is.na(scorer)
+#     ) %>%
+#     inner_join(
+#       next_game_players,
+#       by = c("scorer_key" = "scorer_key")
+#     ) %>%
+#     group_by(scorer.x, game_date, period_number) %>%
+#     summarize(pts = sum(score_value), .groups = "drop") %>%
+#     rename(scorer = scorer.x)  %>%
+#     mutate(name_key_norm = normalize_name(scorer)) %>%  # ← normalize here
+#     select(-scorer)   
+#   
+#   # ── Step 4: Join pts onto spine — missing quarters = 0 ────────────────────
+#   spine %>%
+#     left_join(
+#       pts_actual,
+#       by = c("name_key_norm", "game_date", "period_number")
+#     ) %>%
+#     mutate(pts = replace_na(pts, 0)) %>%
+#     select(-name_key_norm) %>%          # played, didn't score → 0
+#     left_join(
+#       teams %>% select(slugTeam, nameTeam),
+#       by = c("team_abbreviation" = "slugTeam")
+#     ) 
+# }
+# 
+# test_build_raw          <- test_build("Regular Season")
+# 
+# 
+# compute_q_hit_rates <- function(build_raw) {
+#   if (nrow(build_raw) == 0) return(tibble())
+#   
+#   build_raw %>%
+#     mutate(hit = pts > 2.5) %>%
+#     group_by(scorer, game_date) %>%
+#     summarize(
+#                           
+#       quarters_hit     = sum(hit),
+#       pct_quarters_hit = mean(hit),                  # e.g. 0.75 = hit 3 of 4 Qs
+#       .groups = "drop"
+#     )
+# }
+# 
+# test <- compute_q_hit_rates(test_build_raw)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
-# HTML OUTPUT — wrapped in tryCatch for error email
+# NBA JSON EXPORT — for new PropBetIQ NBA dashboard
+# Adds game-log JSON export alongside existing reactable HTML output.
+# Runs at the end of the pipeline. Does NOT affect existing outputs.
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Ensure output folders exist
-dir.create("Starter", showWarnings = FALSE)
-dir.create("Pro",     showWarnings = FALSE)
-dir.create("Sharp",   showWarnings = FALSE)
-source("save_self_contained.R", local = FALSE)
+# ── Current team lookup for JSON build (fixes traded-but-DNP cases) ──────────
+# Uses the existing all_rosters_raw from Roster Grab section
+current_team_lookup <- all_rosters_raw |>
+  dplyr::transmute(
+    idPlayer    = as.numeric(PLAYER_ID),
+    roster_team = team_abbreviation
+  ) |>
+  dplyr::distinct(idPlayer, .keep_all = TRUE) |>
+  dplyr::filter(!is.na(idPlayer), !is.na(roster_team))
+
+message("✓ Current team lookup built from all_rosters_raw: ",
+        nrow(current_team_lookup), " players across ", 
+        dplyr::n_distinct(current_team_lookup$roster_team), " teams")
+
+
+
+build_nba_json_export <- function() {
+  
+  library(dplyr)
+  library(tidyr)
+  library(jsonlite)
+  library(purrr)
+  
+  message("\n▶ Building NBA JSON export...")
+  
+  # ── 1. Base game logs — one row per player per game (current season only) ──
+  base_games <- playerdata  |>
+    transmute(
+      season = as.integer(yearSeason),
+      idPlayer,
+      namePlayer,
+      slugTeam,
+      slugOpponent,
+      game_id = as.character(idGame),
+      game_date = as.character(dateGame),
+      loc = ifelse(locationGame == "H", "home", "away"),
+      season_type = case_when(
+        typeSeason == "Regular Season" ~ "regular",
+        typeSeason == "Playoffs"       ~ "playoffs",
+        TRUE                            ~ "other"
+      ),
+      pts = as.integer(pts),
+      ast = as.integer(ast),
+      reb = as.integer(treb),
+      fg3m = as.integer(fg3m),
+      ftm = as.integer(ftm),
+      fgm = as.integer(fgm),
+      tov = as.integer(tov),
+      stl = as.integer(stl),
+      blk = as.integer(blk)
+    )
+  
+  message("  Base game rows: ", nrow(base_games))
+  
+  # ── 2. Q1 / H1 / Q3-through splits from play-by-play ────────────────────────
+  # Uses normalize_name pattern to match PBP scorer/assister/rebounder
+  # against playerdata namePlayer (handles accents like Dončić, Šengün)
+  
+  build_period_totals <- function(period_max) {
+    
+    pts_by <- play_play |>
+      filter(period_number <= period_max, scoring_play == TRUE, !is.na(scorer)) |>
+      mutate(scorer_key = normalize_name(scorer),
+             game_date = as.character(game_date)) |>
+      group_by(scorer_key, game_date) |>
+      summarize(period_pts = sum(score_value, na.rm = TRUE), .groups = "drop")
+    
+    ast_by <- play_play |>
+      filter(period_number <= period_max, scoring_play == TRUE, !is.na(assister)) |>
+      mutate(assister_key = normalize_name(assister),
+             game_date = as.character(game_date)) |>
+      group_by(assister_key, game_date) |>
+      summarize(period_ast = n(), .groups = "drop")
+    
+    reb_by <- play_play |>
+      filter(period_number <= period_max, !is.na(rebounder)) |>
+      mutate(rebounder_key = normalize_name(rebounder),
+             game_date = as.character(game_date)) |>
+      group_by(rebounder_key, game_date) |>
+      summarize(period_reb = n(), .groups = "drop")
+    
+    list(pts = pts_by, ast = ast_by, reb = reb_by)
+  }
+  
+  q1 <- build_period_totals(1)
+  h1 <- build_period_totals(2)
+  q3 <- build_period_totals(3)
+  
+  # ── 3. Add normalized name key to base games for joining ────────────────────
+  base_games_keyed <- base_games |>
+    mutate(name_key = normalize_name(namePlayer))
+  
+  # ── 4. Join all splits onto base games ──────────────────────────────────────
+  full_games <- base_games_keyed |>
+    left_join(q1$pts |> rename(q1_pts = period_pts), by = c("name_key" = "scorer_key", "game_date")) |>
+    left_join(q1$ast |> rename(q1_ast = period_ast), by = c("name_key" = "assister_key", "game_date")) |>
+    left_join(q1$reb |> rename(q1_reb = period_reb), by = c("name_key" = "rebounder_key", "game_date")) |>
+    left_join(h1$pts |> rename(h1_pts = period_pts), by = c("name_key" = "scorer_key", "game_date")) |>
+    left_join(h1$ast |> rename(h1_ast = period_ast), by = c("name_key" = "assister_key", "game_date")) |>
+    left_join(h1$reb |> rename(h1_reb = period_reb), by = c("name_key" = "rebounder_key", "game_date")) |>
+    left_join(q3$pts |> rename(q3_pts = period_pts), by = c("name_key" = "scorer_key", "game_date")) |>
+    left_join(q3$ast |> rename(q3_ast = period_ast), by = c("name_key" = "assister_key", "game_date")) |>
+    left_join(q3$reb |> rename(q3_reb = period_reb), by = c("name_key" = "rebounder_key", "game_date")) |>
+    mutate(
+      across(c(q1_pts, q1_ast, q1_reb, h1_pts, h1_ast, h1_reb, q3_pts, q3_ast, q3_reb),
+             ~ as.integer(tidyr::replace_na(.x, 0)))
+    ) |>
+    select(-name_key)
+  
+  message("  Full game rows after join: ", nrow(full_games))
+  
+  # ── 5. Nest by player ────────────────────────────────────────────────────────
+  players_nested <- full_games |>
+    arrange(idPlayer, desc(game_date)) |>
+    group_by(idPlayer) |>
+    summarize(
+      display_name = first(namePlayer),
+      current_team = first(slugTeam),
+      games = list(
+        pick(game_id, game_date, slugOpponent, loc, season_type, season,
+             pts, ast, reb, fg3m, ftm, fgm, tov, stl, blk,
+             q1_pts, q1_ast, q1_reb,
+             h1_pts, h1_ast, h1_reb,
+             q3_pts, q3_ast, q3_reb) |>
+          rename(date = game_date, opp = slugOpponent) |>
+          purrr::transpose()
+      ),
+      .groups = "drop"
+    ) |>
+    filter(!is.na(display_name)) |>
+    left_join(player_status, by = "idPlayer") |>
+    # Override current_team from active roster (fixes AD-style cases)
+    left_join(current_team_lookup, by = "idPlayer") |>
+    mutate(
+      current_team = dplyr::if_else(!is.na(roster_team), roster_team, current_team)
+    ) |>
+    select(-roster_team) |>
+    # Compute team change AFTER override so it reflects true current team
+    mutate(
+      team_changed = !is.na(prior_team) & prior_team != current_team,
+      team_change_note = ifelse(team_changed, paste0(prior_team, " → ", current_team), NA_character_)
+    )
+  
+  # ── 6. Build final list keyed by player id ──────────────────────────────────
+  players_json <- setNames(
+    lapply(seq_len(nrow(players_nested)), function(i) {
+      list(
+        display_name = players_nested$display_name[[i]],
+        current_team = players_nested$current_team[[i]],
+        position = NULL,
+        is_rookie = if (isTRUE(players_nested$is_rookie[[i]])) TRUE else FALSE,
+        team_change_note = if (!is.na(players_nested$team_change_note[[i]])) players_nested$team_change_note[[i]] else "",
+        games = players_nested$games[[i]]
+      )
+    }),
+    as.character(players_nested$idPlayer)
+  )
+  
+  # ── 7. Wrap in meta and write ────────────────────────────────────────────────
+  output <- list(
+    meta = list(
+      current_season = current_season_label,
+      prior_season   = prior_season_label,
+      current_season_year = as.integer(substr(current_season_label, nchar(current_season_label) - 1, nchar(current_season_label))) + 2000,
+      prior_season_year   = as.integer(substr(prior_season_label, nchar(prior_season_label) - 1, nchar(prior_season_label))) + 2000,
+      generated_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ"),
+      n_players = length(players_json)
+    ),
+    players = players_json
+  )
+  
+  if (!dir.exists("NBA")) dir.create("NBA", recursive = TRUE)
+  output_path <- "NBA/propbetiq_nba.json"
+  
+  jsonlite::write_json(output, output_path, auto_unbox = TRUE, na = "null")
+  
+  size_mb <- round(file.info(output_path)$size / 1024 / 1024, 2)
+  message("  ✓ NBA JSON written to ", output_path)
+  message("    Players: ", length(players_json))
+  message("    Total game rows: ", nrow(full_games))
+  message("    File size: ", size_mb, " MB")
+  
+  invisible(output)
+}
+
+# ── Run it — non-fatal if it fails ─────────────────────────────────────────────
+tryCatch({
+  build_nba_json_export()
+}, error = function(e) {
+  message("NBA JSON export failed (non-fatal): ", conditionMessage(e))
+})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PUSH NBA FILES TO GITHUB PAGES
+# ══════════════════════════════════════════════════════════════════════════════
+
+push_nba_to_github <- function() {
+  
+  # GitHub Actions supplies GH_PUSH_TOKEN; local runs fall back to the token file
+  github_token <- Sys.getenv("GH_PUSH_TOKEN")
+  if (!nzchar(github_token)) {
+    token_file <- "C:/Users/ccrai/OneDrive/Documents/.github_token.txt"
+    if (!file.exists(token_file)) stop("GitHub token file not found at ", token_file)
+    github_token <- readLines(token_file, warn = FALSE)[1]
+  }
+  github_user  <- "backironanalytics"
+  github_repo  <- "DDS"
+  
+  # Get current rotation slug (rotates if needed)
+  slugs <- get_current_slugs("nba")
+  
+  # Rewrite HTML files to point to slugged JSON before pushing
+  starter_html_tmp <- rewrite_html_json_ref(
+    "NBA/index-starter.html", "propbetiq_nba.json", slugs$json
+  )
+  edge_html_tmp <- rewrite_html_json_ref(
+    "NBA/index-edge.html", "propbetiq_nba.json", slugs$json
+  )
+  
+  files_to_push <- list(
+    list(local = starter_html_tmp,         remote = paste0("NBA/", slugs$html_starter)),
+    list(local = edge_html_tmp,            remote = paste0("NBA/", slugs$html_edge)),
+    list(local = "NBA/propbetiq_nba.json", remote = paste0("NBA/", slugs$json))
+  )
+  
+  base_url <- paste0("https://api.github.com/repos/", github_user, "/", github_repo, "/contents/")
+  headers  <- httr::add_headers(
+    Authorization = paste("token", github_token),
+    Accept        = "application/vnd.github.v3+json"
+  )
+  
+  for (f in files_to_push) {
+    if (!file.exists(f$local)) {
+      message("  Skipping missing file: ", f$local)
+      next
+    }
+    message("  Pushing ", f$remote, "...")
+    
+    raw_bytes <- readBin(f$local, "raw", file.size(f$local))
+    encoded   <- base64enc::base64encode(raw_bytes)
+    
+    existing <- httr::GET(paste0(base_url, f$remote), headers)
+    sha      <- NULL
+    if (httr::status_code(existing) == 200) sha <- httr::content(existing)$sha
+    
+    body <- list(
+      message = paste0("PropBetIQ NBA update ", format(Sys.Date(), "%Y-%m-%d")),
+      content = encoded
+    )
+    if (!is.null(sha)) body$sha <- sha
+    
+    result <- httr::PUT(
+      url    = paste0(base_url, f$remote),
+      config = headers,
+      body   = jsonlite::toJSON(body, auto_unbox = TRUE),
+      httr::content_type_json()
+    )
+    
+    if (httr::status_code(result) %in% c(200, 201)) {
+      message("    ✓ ", f$remote, " pushed successfully")
+    } else {
+      message("    ✗ Failed to push ", f$remote, " — status: ", httr::status_code(result))
+    }
+    
+    Sys.sleep(0.5)
+  }
+  
+  message("\n  Cleaning up old orphan files from GitHub...")
+  cleanup_old_slugs(
+    sport         = "nba",
+    github_user   = github_user,
+    github_repo   = github_repo,
+    github_token  = github_token,
+    current_slugs = list(slugs$starter_slug, slugs$edge_slug, slugs$json_slug)
+  )
+}
+
+# ── Call at end of script ──────────────────────────────────────────────────
+
+tryCatch({
+  message("\nPushing NBA files to GitHub Pages...")
+  push_nba_to_github()
+  message("✓ NBA GitHub push complete")
+  print_current_urls()
+}, error = function(e) {
+  message("NBA GitHub push failed (non-fatal): ", conditionMessage(e))
+})
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EMAIL NOTIFICATION — Success or failure summary
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# WHERE TO PUT THIS: At the very end of Compiled_daily_run.R, AFTER the
+# push_nba_to_github() tryCatch block.
+#
+# REQUIRES: script_start_time must be set at the top of your script:
+#   script_start_time <- Sys.time()
+#
+# The success email will tell you:
+#   - Total runtime
+#   - Player count and file size for the JSON
+#   - Current slugged URLs (so you always have them in your email)
+#   - Whether rotation happened this run
+#
+# ══════════════════════════════════════════════════════════════════════════════
 
 tryCatch({
   
-  # ── Stats HTML ───────────────────────────────────────────────────────────────
-  message("\nBuilding propiq_stats.html...")
-  source("build_propiq_stats.R", local = FALSE)
-  build_propiq_stats("Starter/propiq_stats.html")
-  gc(); gc()
-  message("✓ propiq_stats.html complete")
-  
-  # ── Gameday threshold HTML ────────────────────────────────────────────────────
-  message("\nBuilding propiq_gameday.html...")
-  source("build_propiq_html.R", local = FALSE)
-  build_propiq_page("Pro/propiq_gameday.html")
-  gc(); gc()
-  message("✓ propiq_gameday.html complete")
-  
-  # ── Split HTML files ──────────────────────────────────────────────────────────
-  message("\nBuilding split HTML files...")
-  source("build_propiq_html_5.R", local = FALSE)
-  
-  matchup_str <- tryCatch({
-    n_games <- matchup |>
-      dplyr::filter(location == "Home") |>
-      dplyr::distinct(Team) |>
-      nrow()
-    paste0(n_games, " games tonight")
-  }, error = function(e) format(Sys.Date(), "%B %d, %Y"))
-  
-  build_split_page(
-    output_file    = "Sharp/propiq_reg_season.html",
-    split_filter   = "Regular Season",
-    split_label    = "Regular Season",
-    split_sublabel = "Full regular season sample",
-    matchup_str    = matchup_str
-  )
-  gc()
-  
-  build_split_page(
-    output_file    = "Sharp/propiq_home.html",
-    split_filter   = "Home Games",
-    split_label    = "Home Games",
-    split_sublabel = "Regular season home games only",
-    matchup_str    = matchup_str
-  )
-  gc()
-  
-  build_split_page(
-    output_file    = "Sharp/propiq_away.html",
-    split_filter   = "Away Games",
-    split_label    = "Away Games",
-    split_sublabel = "Regular season away games only",
-    matchup_str    = matchup_str
-  )
-  gc()
-  
-  build_split_page(
-    output_file    = "Sharp/propiq_playoffs.html",
-    split_filter   = "Playoffs",
-    split_label    = "Playoffs",
-    split_sublabel = "Playoff games only",
-    matchup_str    = matchup_str
-  )
-  gc()
-  
-  build_split_page(
-    output_file    = "Sharp/propiq_last10.html",
-    split_filter   = "Last 10",
-    split_label    = "Last 10 Games",
-    split_sublabel = "Most recent 10 games regardless of game type",
-    matchup_str    = matchup_str
-  )
-  gc()
-  
-  build_split_page(
-    output_file    = "Sharp/propiq_vs_opponent.html",
-    vs_opponent    = TRUE,
-    vs_type_values = vs_type_values,
-    split_label    = "vs Tonight's Opponent",
-    split_sublabel = "Regular season games against tonight's specific opponent",
-    matchup_str    = matchup_str
-  )
-  gc(); gc()
-  message("✓ All split HTML files complete")
-  
-  # ── Build index pages ────────────────────────────────────────────────────────
-  build_propiq_index <- function(tier, output_file, links, matchup_str = "") {
-    game_date <- tryCatch(
-      format(as.Date(next_team_batch_date), "%A, %B %d %Y"),
-      error = function(e) format(Sys.Date(), "%A, %B %d %Y")
-    )
-    link_cards <- paste(sapply(links, function(l) {
-      glue::glue('
-        <a href="{l$url}" target="_blank" style="display:block;background:#1C0F3A;
-           border:1px solid #2D1A5A;border-radius:12px;padding:18px 24px;
-           text-decoration:none;margin-bottom:12px;"
-           onmouseover="this.style.background=\'#2A1650\'"
-           onmouseout="this.style.background=\'#1C0F3A\'">
-          <div style="font-family:Barlow Condensed,sans-serif;font-size:18px;
-                      font-weight:800;color:#FFFFFF;margin-bottom:4px;">{l$label}</div>
-          <div style="font-family:JetBrains Mono,monospace;font-size:11px;
-                      color:#9B86C0;">{l$description}</div>
-        </a>')
-    }), collapse = "\n")
-    html <- paste0('<!DOCTYPE html><html lang="en"><head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>PropIQ ', tier, ' \u2014 ', game_date, '</title>
-      <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-      <style>
-        *{box-sizing:border-box;margin:0;padding:0;}
-        body{background:#0A0518;color:#FFF;font-family:Barlow,sans-serif;
-             min-height:100vh;display:flex;flex-direction:column;
-             align-items:center;padding:40px 20px;}
-        .container{width:100%;max-width:540px;}
-        .logo{font-family:Barlow Condensed,sans-serif;font-size:36px;
-              font-weight:900;text-align:center;}
-        .logo span{color:#F5A623;}
-        .badge{display:block;text-align:center;font-family:JetBrains Mono,monospace;
-               font-size:11px;color:#F5A623;background:rgba(245,166,35,0.15);
-               border:1px solid rgba(245,166,35,0.4);border-radius:4px;
-               padding:3px 10px;letter-spacing:0.1em;margin:8px auto 4px;
-               width:fit-content;}
-        .date{font-family:JetBrains Mono,monospace;font-size:12px;
-              color:#6B4DA0;text-align:center;margin-bottom:4px;}
-        .matchups{font-size:13px;color:#9B86C0;text-align:center;margin-bottom:28px;}
-        .section{font-family:JetBrains Mono,monospace;font-size:10px;
-                 letter-spacing:0.15em;color:#6B4DA0;text-transform:uppercase;
-                 margin-bottom:12px;}
-        .footer{margin-top:28px;font-family:JetBrains Mono,monospace;
-                font-size:11px;color:#3D2A6B;text-align:center;}
-      </style></head><body><div class="container">
-      <div class="logo">Prop<span>IQ</span></div>
-      <div class="badge">', toupper(tier), ' TIER</div>
-      <div class="date">', game_date, '</div>
-      <div class="matchups">', matchup_str, '</div>
-      <div class="section">Select a report</div>',
-                   link_cards,
-                   '<div class="footer">Updated nightly \u00b7 Data through today\'s games</div>
-      </div></body></html>')
-    writeLines(html, output_file)
-    message("  Index page saved: ", output_file)
-    invisible(output_file)
-  }
-  
-  base_url <- "https://backironanalytics.github.io/DDS"
-  
-  build_propiq_index(
-    tier        = "Sharp",
-    output_file = "Sharp/index.html",
-    matchup_str = matchup_str,
-    links = list(
-      list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_reg_season.html",
-           label="Regular Season",        description="Full season hit rates for tonight's players"),
-      list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_home.html",
-           label="Home Games",            description="Regular season home game splits"),
-      list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_away.html",
-           label="Away Games",            description="Regular season away game splits"),
-      list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_playoffs.html",
-           label="Playoffs",              description="Playoff game splits"),
-      list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_last10.html",
-           label="Last 10 Games",         description="Recent form — last 10 games"),
-      list(url="https://backironanalytics.github.io/DDS/Sharp/propiq_vs_opponent.html",
-           label="vs Tonight's Opponent", description="Head-to-head splits against tonight's matchup")
-    )
-  )
-  
-  build_propiq_index(
-    tier        = "Pro",
-    output_file = "Pro/index.html",
-    matchup_str = matchup_str,
-    links = list(
-      list(url="https://backironanalytics.github.io/DDS/Pro/propiq_gameday.html",
-           label="Game Day Thresholds",
-           description="Q1 / H1 / Q3 threshold analysis for tonight's players")
-    )
-  )
-  
-  build_propiq_index(
-    tier        = "Starter",
-    output_file = "Starter/index.html",
-    matchup_str = matchup_str,
-    links = list(
-      list(url="https://backironanalytics.github.io/DDS/Starter/propiq_stats.html",
-           label="Hit Rate Stats",
-           description="Full game hit rates — Regular Season and Playoffs")
-    )
-  )
-  
-  message("✓ Index pages complete")
-  
-  # ── Success email ─────────────────────────────────────────────────────────────
   duration <- round(difftime(Sys.time(), script_start_time, units = "mins"), 1)
   
+  # ── Gather output file info ────────────────────────────────────────────────
   output_files <- c(
-    "Starter/propiq_stats.html",
-    "Pro/propiq_gameday.html",
-    "Sharp/propiq_reg_season.html",
-    "Sharp/propiq_home.html",
-    "Sharp/propiq_away.html",
-    "Sharp/propiq_playoffs.html",
-    "Sharp/propiq_last10.html",
-    "Sharp/propiq_vs_opponent.html"
+    "NBA/propbetiq_nba.json",
+    "NBA/index-starter.html",
+    "NBA/index-edge.html"
   )
   
   file_rows <- paste(
     sapply(output_files, function(f) {
       if (file.exists(f)) {
-        size_mb <- round(file.size(f) / 1024 / 1024, 1)
+        size_mb <- round(file.size(f) / 1024 / 1024, 2)
         glue::glue("| {f} | {size_mb} MB \u2705 |")
       } else {
         glue::glue("| {f} | Not found \u274c |")
@@ -4524,14 +5351,58 @@ tryCatch({
     collapse = "\n"
   )
   
+  # ── Get current slug info from rotation state ──────────────────────────────
+  slug_info <- tryCatch({
+    state <- load_slug_state()
+    if (!is.null(state$nba_starter$slug)) {
+      starter_slug <- as.character(unlist(state$nba_starter$slug))[1]
+      edge_slug    <- as.character(unlist(state$nba_edge$slug))[1]
+      created      <- as.character(unlist(state$nba_starter$created))[1]
+      created_date <- tryCatch(as.Date(created), error = function(e) NA)
+      slug_age <- if (!is.na(created_date)) as.integer(Sys.Date() - created_date) else NA
+      rotated_today <- (!is.na(created_date) && created_date == Sys.Date())
+      
+      slug_status <- if (rotated_today) {
+        "\ud83d\udd04 **ROTATED TODAY** \u2014 update Patreon pinned posts"
+      } else if (!is.na(slug_age)) {
+        glue::glue("Slug age: {slug_age} days (rotates on 1st of month or at 30 days)")
+      } else {
+        "Slug age: unknown"
+      }
+      
+      glue::glue(
+        "## Current Slugs\n\n",
+        "**Starter:** `{starter_slug}` \u00b7 **Edge:** `{edge_slug}` \u00b7 Created {created}\n\n",
+        "{slug_status}\n\n",
+        "## Live URLs\n\n",
+        "- **NBA Starter:** https://backironanalytics.github.io/DDS/NBA/index-starter-{starter_slug}.html\n",
+        "- **NBA Edge:** https://backironanalytics.github.io/DDS/NBA/index-edge-{edge_slug}.html\n"
+      )
+    } else {
+      "\u26a0 No rotation state file found \u2014 first run?"
+    }
+  }, error = function(e) paste0("Could not read rotation state: ", conditionMessage(e)))
+  
+  # ── Get player and game counts from JSON ───────────────────────────────────
+  json_stats <- tryCatch({
+    if (file.exists("NBA/propbetiq_nba.json")) {
+      j <- jsonlite::fromJSON("NBA/propbetiq_nba.json", simplifyVector = FALSE)
+      n_players <- length(j$players)
+      total_games <- sum(sapply(j$players, function(p) length(p$games)))
+      glue::glue("**Players:** {n_players} \u00b7 **Total game rows:** {format(total_games, big.mark=',')}")
+    } else "JSON not found"
+  }, error = function(e) paste0("JSON stats error: ", conditionMessage(e)))
+  
+  # ── Game date string ───────────────────────────────────────────────────────
   game_date_str <- tryCatch(
     format(as.Date(next_team_batch_date), "%A, %B %d %Y"),
     error = function(e) format(Sys.Date(), "%A, %B %d %Y")
   )
   
+  # ── Compose and send success email ─────────────────────────────────────────
   success_email <- blastula::compose_email(
     body = blastula::md(glue::glue(
-      "## PropIQ \u2014 Nightly Run Complete \u2705
+      "## PropBetIQ NBA \u2014 Daily Run Complete \u2705
 
       | | |
       |---|---|
@@ -4540,11 +5411,20 @@ tryCatch({
       | **Finished** | {format(Sys.time(), '%I:%M %p')} |
       | **Duration** | {duration} minutes |
 
+      ## Data Summary
+
+      {json_stats}
+
       ## Output Files
 
       | File | Size |
       |---|---|
       {file_rows}
+
+      {slug_info}
+
+      ---
+      *Automated notification from Compiled_daily_run.R*
       "
     ))
   )
@@ -4553,43 +5433,53 @@ tryCatch({
     success_email,
     to          = "ccraig2435@gmail.com",
     from        = "ccraig2435@gmail.com",
-    subject     = glue::glue("\u2705 PropIQ Ready \u2014 {game_date_str}"),
-    credentials = blastula::creds_file("gmail_creds")
+    subject     = glue::glue("\u2705 PropBetIQ NBA Ready \u2014 {game_date_str}"),
+    credentials = smtp_creds()
   )
   
-  message("\u2705 All done. Total time: ", duration, " minutes.")
+  message("\u2705 Success email sent. Total run time: ", duration, " minutes.")
   
 }, error = function(e) {
   
-  duration <- round(difftime(Sys.time(), script_start_time, units = "mins"), 1)
-  
-  error_email <- blastula::compose_email(
-    body = blastula::md(glue::glue(
-      "## PropIQ \u2014 Nightly Run FAILED \u274c
-
-      | | |
-      |---|---|
-      | **Date** | {format(Sys.Date(), '%A, %B %d %Y')} |
-      | **Started** | {format(script_start_time, '%I:%M %p')} |
-      | **Failed after** | {duration} minutes |
-
-      ## Error
-
-      {conditionMessage(e)}
-      "
-    ))
+  # ── Failure path ───────────────────────────────────────────────────────────
+  duration <- tryCatch(
+    round(difftime(Sys.time(), script_start_time, units = "mins"), 1),
+    error = function(e2) "unknown"
   )
   
-  blastula::smtp_send(
-    error_email,
-    to          = "ccraig2435@gmail.com",
-    from        = "ccraig2435@gmail.com",
-    subject     = glue::glue("\u274c PropIQ FAILED \u2014 {format(Sys.Date(), '%b %d %Y')}"),
-    credentials = blastula::creds_file("gmail_creds")
-  )
-  
-  message("\u274c Failed after ", duration, " minutes: ", conditionMessage(e))
-  stop(e)
-  
+  tryCatch({
+    error_email <- blastula::compose_email(
+      body = blastula::md(glue::glue(
+        "## PropBetIQ NBA \u2014 Daily Run FAILED \u274c
+
+        | | |
+        |---|---|
+        | **Date** | {format(Sys.Date(), '%A, %B %d %Y')} |
+        | **Started** | {format(script_start_time, '%I:%M %p')} |
+        | **Failed after** | {duration} minutes |
+
+        ## Error Message
+
+        ```
+        {conditionMessage(e)}
+        ```
+
+        ---
+        *Automated notification from Compiled_daily_run.R*
+        "
+      ))
+    )
+    
+    blastula::smtp_send(
+      error_email,
+      to          = "ccraig2435@gmail.com",
+      from        = "ccraig2435@gmail.com",
+      subject     = glue::glue("\u274c PropBetIQ NBA FAILED \u2014 {format(Sys.Date(), '%b %d %Y')}"),
+      credentials = smtp_creds()
+    )
+    
+    message("\u274c Failure email sent. Error was: ", conditionMessage(e))
+  }, error = function(e2) {
+    message("\u274c Could not even send failure email: ", conditionMessage(e2))
+  })
 })
-
