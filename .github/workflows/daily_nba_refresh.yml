@@ -1,94 +1,121 @@
-name: Daily NBA Prop Refresh
+name: NBA nightly refresh
 
 on:
   schedule:
-    - cron: '0 12 * * *'
-  workflow_dispatch:
+    # GitHub cron is UTC: daily 11:41 UTC = 4:41am Pacific (3:41am after DST ends)
+    - cron: '41 11 * * *'
+  workflow_dispatch:   # adds a "Run workflow" button for manual runs
+
+permissions:
+  contents: write   # lets the script push the refreshed files to this repo
+  issues: write     # lets the job open an issue when links rotate
+
+concurrency:
+  group: propbetiq-publish   # NFL and NBA never publish at the same time
+  cancel-in-progress: false
 
 jobs:
   refresh:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 300
+    env:
+      GH_PUSH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      PROPBETIQ_ROTATION_FILE: url_rotation.R
+      PROPBETIQ_SLUGS_FILE: .current_slugs.json
+      VROOM_CONNECTION_SIZE: '262144'
+      TZ: America/Los_Angeles
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: r-lib/actions/setup-r@v2
         with:
-          r-version: '4.4'
+          r-version: release
           use-public-rspm: true
 
-      - name: Cache R packages
-        uses: actions/cache@v4
+      - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          path: ${{ env.R_LIBS_USER }}
-          key: r-packages-${{ runner.os }}-${{ hashFiles('DESCRIPTION') }}
-          restore-keys: r-packages-${{ runner.os }}-
+          cache-version: 1
+          packages: |
+            any::tidyverse
+            abresler/nbastatR
+            any::hoopR
+            any::blastula
+            any::flexdashboard
+            any::rvest
+            any::caret
+            any::ggpubr
+            any::knitr
+            any::broom
+            any::gridExtra
+            any::formattable
+            any::markdown
+            any::magick
+            any::highcharter
+            any::extrafont
+            any::cowplot
+            any::fmsb
+            any::shiny
+            any::fontawesome
+            any::bslib
+            any::plotly
+            any::ggbreak
+            any::crosstalk
+            any::htmltools
+            any::httr
+            any::jsonlite
+            any::progressr
+            any::logger
+            any::glue
+            any::lubridate
+            any::arrow
+            any::future
+            any::furrr
+            any::parallelly
+            any::stringi
+            any::base64enc
 
-      - name: Restore PBP data cache
+      # Keeps already-downloaded play-by-play games between runs so only new games are fetched
+      - name: Restore play-by-play cache
         uses: actions/cache@v4
         with:
           path: data/pbp
-          key: pbp-data-${{ runner.os }}
-          restore-keys: pbp-data-
+          key: nba-pbp-${{ github.run_id }}
+          restore-keys: nba-pbp-
 
-      - name: Install R packages
-        shell: Rscript {0}
-        env:
-          GITHUB_PAT: ${{ secrets.PAT }}
-        run: |
-          if (!"pak" %in% installed.packages()[,"Package"])
-            install.packages("pak", repos = "https://cloud.r-project.org")
-          pkgs <- c(
-            "tidyverse", "dplyr", "rvest", "stringr", "parallel",
-            "arrow", "reactable", "reactablefmtr", "crosstalk",
-            "htmltools", "rmarkdown", "scales", "viridis",
-            "furrr", "future", "parallelly", "glue", "logger","flexdashboard","caret",
-            "ggpubr","knitr","broom","grid","gridExtra","formattable","markdown","magick","highcharter",
-            "extrafont","cowplot","fmsb","shiny","fontawesome","bslib","plotly","ggbreak","RSelenium",
-            "httr","rjson","jsonlite","stringi","sparkline","rlist","htmlwidgets","webshot","webshot2",
-            "foreach","readr","crosstalk","htmltools","hoopR"
-            )
-          missing <- pkgs[!pkgs %in% installed.packages()[,"Package"]]
-          if (length(missing)) install.packages(missing, repos = "https://cloud.r-project.org")
-          if (!"nbastatR" %in% installed.packages()[,"Package"])
-            pak::pak("abresler/nbastatR")
-          if (!"hoopR" %in% installed.packages()[,"Package"])
-            pak::pak("sportsdataverse/hoopR@v2.1.0")
+      - name: Remember current link slugs
+        run: cp .current_slugs.json /tmp/slugs_before.json
 
       - name: Run Compiled_daily_run.R
-        shell: Rscript {0}
+        run: Rscript Compiled_daily_run.R
+
+      - name: Check the site was actually updated
+        run: |
+          git fetch --quiet origin main
+          if ! git log origin/main --since="8 hours ago" --grep="PropBetIQ NBA update" --oneline | grep -q .; then
+            echo "::error::Compiled_daily_run.R finished, but no NBA files were pushed to GitHub Pages. Check the 'Run Compiled_daily_run.R' log."
+            exit 1
+          fi
+
+      - name: Save rotated links and open a reminder issue
         env:
-          VROOM_CONNECTION_SIZE: '262144'
-          GITHUB_PAT: ${{ secrets.PAT }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          source("Compiled_daily_run.R")
+          if cmp -s /tmp/slugs_before.json .current_slugs.json; then
+            echo "Links unchanged."; exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .current_slugs.json
+          git commit -m "Rotate NBA link slugs $(date +%F)"
+          git pull --rebase --autostash origin main
+          git push origin HEAD:main
+          Rscript -e 'source("url_rotation.R"); print_current_urls()' > /tmp/urls.txt
+          gh issue create --title "NBA links rotated $(date +%F): update Patreon" \
+            --body "The NBA dashboard links changed. Update the Patreon posts with these:
 
-      - name: Render report
-        shell: Rscript {0}
-        run: |
-          rmarkdown::render(
-            input       = "Matrix_Testv3.Rmd",
-            output_file = "prop_bet_matrix.html",
-            output_dir  = "."
-          )
-
-      - name: Save PBP data cache
-        uses: actions/cache@v4
-        with:
-          path: data/pbp
-          key: pbp-data-${{ runner.os }}
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .
-          include_files: prop_bet_matrix.html
-
-      - name: Upload report artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: prop-bet-matrix-${{ github.run_id }}
-          path: prop_bet_matrix.html
-          retention-days: 7
+          \`\`\`
+          $(cat /tmp/urls.txt)
+          \`\`\`"
