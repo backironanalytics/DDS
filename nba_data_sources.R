@@ -418,7 +418,19 @@ espn_league_schedule <- function(seasontype = 2) {
       tv <- paste(vapply(cmp$broadcasts %||% list(),
                          function(b) b$media$shortName %||% "", ""), collapse = "/")
       score <- function(t) t$score$displayValue %||% ""
+      home <- Filter(function(t) identical(t$homeAway, "home"), cmp$competitors)
+      away <- Filter(function(t) identical(t$homeAway, "away"), cmp$competitors)
+      tm   <- function(lst, f) if (length(lst)) (f(lst[[1]]$team) %||% NA) else NA
+      logo <- function(t) if (length(t$logos)) t$logos[[1]]$href else NA_character_
       tibble::tibble(
+        home_abbreviation = as.character(tm(home, function(t) t$abbreviation)),
+        away_abbreviation = as.character(tm(away, function(t) t$abbreviation)),
+        home_id           = as.integer(tm(home, function(t) t$id)),
+        away_id           = as.integer(tm(away, function(t) t$id)),
+        home_display_name = as.character(tm(home, function(t) t$displayName)),
+        away_display_name = as.character(tm(away, function(t) t$displayName)),
+        home_logo         = as.character(tm(home, logo)),
+        away_logo         = as.character(tm(away, logo)),
         event_id    = as.character(e$id),
         season_year = as.numeric(yr),
         season_type = as.character(seasontype),
@@ -457,4 +469,25 @@ espn_team_schedule <- function(x, seasontype) {
     dplyr::mutate(slugTeam = opp, Opponent = cityTeam, game_number = dplyr::row_number()) |>
     dplyr::select(game_date, location, Opponent, slugTeam, idTeam, nameTeam,
                   urlThumbnailTeam, Team, game_number, TV, Time)
+}
+
+
+# Schedule in hoopR::load_nba_schedule() format, for the play-by-play pipeline
+# (hoopR only publishes a season's schedule file some time into the season)
+espn_pbp_schedule <- function(season_year) {
+  sched <- dplyr::bind_rows(espn_league_schedule(2), espn_league_schedule(3))
+  if (!nrow(sched)) return(NULL)
+  sched |>
+    dplyr::filter(season_year == !!season_year) |>
+    dplyr::distinct(event_id, .keep_all = TRUE) |>
+    dplyr::transmute(
+      game_id               = as.integer(event_id),
+      game_date             = game_date,
+      season_type           = as.integer(season_type),
+      home_abbreviation, away_abbreviation, home_id, away_id,
+      home_display_name, away_display_name, home_logo, away_logo,
+      home_color            = NA_character_,
+      away_color            = NA_character_,
+      status_type_completed = completed
+    )
 }

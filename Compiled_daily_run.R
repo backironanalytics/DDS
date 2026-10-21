@@ -68,6 +68,8 @@ N_WORKERS   <- 3                    # parallel workers — don't exceed 6 or ESP
 # will rate-limit you. 4 is the safe default.
 
 source(Sys.getenv("PROPBETIQ_ROTATION_FILE", "C:/Users/ccrai/OneDrive/Documents/DDS/url_rotation.R"))
+# NBA data helpers (ESPN / hoopR) — loaded early so the play-by-play step can use the ESPN schedule
+source(Sys.getenv("PROPBETIQ_NBA_SOURCES_FILE", "C:/Users/ccrai/OneDrive/Documents/DDS/nba_data_sources.R"))
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 dir.create(DATA_DIR, recursive = TRUE, showWarnings = FALSE)
@@ -200,6 +202,15 @@ get_season_game_ids <- function(season = SEASON, max_retries = 3) {
     })
   }
   
+  # hoopR publishes a season's schedule file some time into the season — until
+  # then, use ESPN's schedule API (nba_data_sources.R)
+  if (is.null(schedule) || nrow(schedule) == 0 || !"game_id" %in% names(schedule)) {
+    log_warn("hoopR schedule for {season} unavailable — using ESPN schedule API")
+    schedule <- tryCatch(espn_pbp_schedule(season), error = function(e) {
+      log_warn("ESPN schedule failed: {conditionMessage(e)}"); NULL })
+    if (!is.null(schedule) && nrow(schedule) == 0) schedule <- NULL
+  }
+
   if (is.null(schedule)) {
     log_warn("Schedule unavailable after {max_retries} attempts — using cached game IDs")
     return(data.frame(
@@ -1995,6 +2006,10 @@ bucket_conditional <- function(data, half_col, bucket_fn, bucket_order, prefix) 
   
   # Get player column
   ou_cols    <- names(data)[grepl(paste0("^", prefix), names(data))]
+  if (is.null(data) || nrow(data) == 0 || length(ou_cols) == 0) {
+    message("No data to bucket for ", prefix, " — skipping")
+    return(data)
+  }
   player_col <- setdiff(names(data), c(ou_cols, half_col, "n_games", "Type"))
   
   # Pivot back to long format
