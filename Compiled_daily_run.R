@@ -683,8 +683,8 @@ process_schedule <- function(schedule_raw) {
 }
 
 # Regular season
-schedule_raw <- lapply(slugteams_list, get_team_schedule, seasontype = 2)
-schedule     <- process_schedule(schedule_raw)
+schedule_raw <- lapply(slugteams_list, espn_team_schedule, seasontype = 2)  # ESPN API (espn.com pages block GitHub)
+schedule     <- dplyr::bind_rows(schedule_raw)
 
 # Check for upcoming regular season games
 upcoming_regular <- schedule |>
@@ -704,8 +704,8 @@ message("Regular season active: ", regular_season_active)
 # Switch to playoffs if regular season is done
 if (!regular_season_active) {
   message("Regular season complete — switching to playoff schedule...")
-  schedule_raw <- lapply(slugteams_list, get_team_schedule, seasontype = 3)
-  schedule     <- process_schedule(schedule_raw)
+  schedule_raw <- lapply(slugteams_list, espn_team_schedule, seasontype = 3)  # ESPN API (espn.com pages block GitHub)
+  schedule     <- dplyr::bind_rows(schedule_raw)
   message("Playoff schedule loaded — ", nrow(schedule), " rows")
 } else {
   message("Regular season schedule loaded — ", nrow(upcoming_regular), " upcoming games")

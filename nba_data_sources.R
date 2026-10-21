@@ -109,38 +109,95 @@ nba_teams_table <- function() {
   )
   if (!is.null(box)) box <- tibble::as_tibble(box)
 
-  # Top up any finished game that isn't in the daily file yet (e.g. last night)
-  sched <- tryCatch(suppressWarnings(hoopR::load_nba_schedule(seasons = season_year)),
-                    error = function(e) NULL)
-  if (!is.null(sched) && nrow(sched) > 0) {
-    sched_id   <- as.character(if ("game_id" %in% names(sched)) sched$game_id else sched$id)
-    finished   <- .as_flag(.col(sched, "status_type_completed", FALSE))
-    stype      <- as.character(.col(sched, "season_type", NA))
-    want       <- unique(sched_id[finished & stype %in% c("2", "3")])
-    have       <- if (is.null(box)) character() else unique(as.character(box$game_id))
-    missing    <- setdiff(want, have)
-    if (length(missing) > 0 && length(missing) <= 60) {
-      message("  Topping up ", length(missing), " finished game(s) from ESPN")
-      extra <- lapply(missing, function(gid) {
-        Sys.sleep(0.5)
-        tryCatch(tibble::as_tibble(hoopR::espn_nba_player_box(game_id = gid)),
-                 error = function(e) { message("    ESPN box ", gid, " failed: ", conditionMessage(e)); NULL })
-      })
-      extra <- dplyr::bind_rows(lapply(extra, function(x) {
-        if (is.null(x) || !nrow(x)) return(NULL)
-        dplyr::mutate(x, dplyr::across(dplyr::everything(), as.character))
-      }))
-      if (nrow(extra)) {
-        box <- dplyr::bind_rows(
-          if (is.null(box)) NULL else dplyr::mutate(box, dplyr::across(dplyr::everything(), as.character)),
-          extra
-        )
-      }
-    } else if (length(missing) > 60) {
-      message("  ", length(missing), " finished games missing from the daily file — skipping top-up")
-    }
-  }
   box
+}
+
+# Finished games this season that aren't in hoopR's daily file yet (e.g. last
+# night, or the whole season before hoopR publishes it) — fetched straight from
+# ESPN's box score API and cached in data/box so each game is downloaded once.
+.espn_topup_box <- function(box, season_year) {
+  sched <- espn_league_schedule(seasontype = 2)
+  po    <- espn_league_schedule(seasontype = 3)
+  sched <- dplyr::bind_rows(sched, po)
+  if (!nrow(sched)) return(box)
+  sched <- sched[sched$season_year == season_year & sched$completed, ]
+  want  <- unique(sched$event_id)
+  have  <- if (is.null(box)) character() else unique(as.character(box$game_id))
+  missing <- setdiff(want, have)
+  if (!length(missing)) return(box)
+
+  cache_dir <- file.path(Sys.getenv("PROPBETIQ_BOX_DIR", "data/box"), "espn")
+  dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
+  message("  ", length(missing), " finished ", .nba_season_slug(season_year),
+          " game(s) not in hoopR's file yet — using ESPN box scores")
+  stype_of <- stats::setNames(sched$season_type, sched$event_id)
+
+  extra <- lapply(missing, function(gid) {
+    f <- file.path(cache_dir, paste0(gid, ".rds"))
+    if (file.exists(f)) return(readRDS(f))
+    Sys.sleep(0.3)
+    rows <- .espn_game_box(gid, season_year, stype_of[[gid]])
+    if (!is.null(rows) && nrow(rows)) saveRDS(rows, f)
+    rows
+  })
+  extra <- dplyr::bind_rows(extra)
+  if (!nrow(extra)) return(box)
+  if (is.null(box)) return(extra)
+  dplyr::bind_rows(dplyr::mutate(box, dplyr::across(dplyr::everything(), as.character)), extra)
+}
+
+# One game's player box score from ESPN's summary API, in hoopR's column names
+.espn_game_box <- function(event_id, season_year, season_type) {
+  js <- .espn_get_json(paste0(
+    "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=", event_id))
+  if (is.null(js$boxscore$players)) {
+    message("    ESPN box ", event_id, " unavailable: ", attr(js, "error") %||% "no players")
+    return(NULL)
+  }
+  comp  <- js$header$competitions[[1]]
+  when  <- as.POSIXct(comp$date, format = "%Y-%m-%dT%H:%MZ", tz = "UTC")
+  gdate <- format(when, "%Y-%m-%d", tz = "America/New_York")
+  ha    <- stats::setNames(
+    vapply(comp$competitors, function(t) t$homeAway, ""),
+    vapply(comp$competitors, function(t) t$team$abbreviation, "")
+  )
+  abbrs <- names(ha)
+  split_made <- function(x, i) {
+    v <- strsplit(ifelse(is.na(x), "", x), "-", fixed = TRUE)
+    vapply(v, function(z) if (length(z) >= i) z[i] else NA_character_, "")
+  }
+  dplyr::bind_rows(lapply(js$boxscore$players, function(tp) {
+    team <- tp$team$abbreviation
+    opp  <- setdiff(abbrs, team)[1]
+    st   <- tp$statistics[[1]]
+    keys <- unlist(st$keys)
+    dplyr::bind_rows(lapply(st$athletes, function(a) {
+      v <- unlist(a$stats)
+      get <- function(k) { i <- match(k, keys); if (is.na(i) || i > length(v)) NA_character_ else v[[i]] }
+      fg  <- get("fieldGoalsMade-fieldGoalsAttempted")
+      fg3 <- get("threePointFieldGoalsMade-threePointFieldGoalsAttempted")
+      ft  <- get("freeThrowsMade-freeThrowsAttempted")
+      tibble::tibble(
+        game_id = as.character(event_id), season = as.character(season_year),
+        season_type = as.character(season_type), game_date = gdate,
+        athlete_id = as.character(a$athlete$id),
+        athlete_display_name = a$athlete$displayName %||% NA_character_,
+        team_abbreviation = team, opponent_team_abbreviation = opp,
+        home_away = ha[[team]] %||% NA_character_,
+        did_not_play = as.character(isTRUE(a$didNotPlay) || length(v) == 0),
+        minutes = get("minutes"), points = get("points"), assists = get("assists"),
+        rebounds = get("rebounds"), offensive_rebounds = get("offensiveRebounds"),
+        defensive_rebounds = get("defensiveRebounds"), steals = get("steals"),
+        blocks = get("blocks"), turnovers = get("turnovers"), fouls = get("fouls"),
+        field_goals_made = split_made(fg, 1), field_goals_attempted = split_made(fg, 2),
+        three_point_field_goals_made = split_made(fg3, 1),
+        three_point_field_goals_attempted = split_made(fg3, 2),
+        free_throws_made = split_made(ft, 1), free_throws_attempted = split_made(ft, 2),
+        plus_minus = get("plusMinus"),
+        athlete_headshot_href = a$athlete$headshot$href %||% NA_character_
+      )
+    }))
+  }))
 }
 
 # ── Game logs (replaces nbastatR::game_logs(result_types = "player")) ─────────
@@ -148,6 +205,7 @@ nba_teams_table <- function() {
 nba_game_logs <- function(season_year, season_complete = FALSE) {
   slug <- .nba_season_slug(season_year)
   box  <- .espn_player_box(season_year)
+  if (!season_complete) box <- .espn_topup_box(box, season_year)
   if (is.null(box) || nrow(box) == 0) {
     message("  No ", slug, " box scores yet")
     return(NULL)
@@ -320,4 +378,83 @@ nba_rosters <- function(playerdata) {
 
   message("  Rosters: ", nrow(out), " players on ", dplyr::n_distinct(out$team_abbreviation), " teams")
   out
+}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SCHEDULE — ESPN API (replaces scraping espn.com team schedule pages, which
+# ESPN blocks from cloud servers)
+# ══════════════════════════════════════════════════════════════════════════════
+
+ESPN_TEAM_IDS <- c(ATL = 1, BOS = 2, NOP = 3, CHI = 4, CLE = 5, DAL = 6, DEN = 7, DET = 8,
+                   GSW = 9, HOU = 10, IND = 11, LAC = 12, LAL = 13, MIA = 14, MIL = 15,
+                   MIN = 16, BKN = 17, NYK = 18, ORL = 19, PHI = 20, PHX = 21, POR = 22,
+                   SAC = 23, SAS = 24, OKC = 25, UTA = 26, WAS = 27, TOR = 28, MEM = 29,
+                   CHA = 30)
+
+.espn_sched_cache <- new.env()
+
+# Every team's schedule for the current season, one row per team per game
+espn_league_schedule <- function(seasontype = 2) {
+  key <- paste0("st", seasontype)
+  if (!is.null(.espn_sched_cache[[key]])) return(.espn_sched_cache[[key]])
+  out <- dplyr::bind_rows(lapply(names(ESPN_TEAM_IDS), function(tri) {
+    js <- .espn_get_json(paste0("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/",
+                                ESPN_TEAM_IDS[[tri]], "/schedule?seasontype=", seasontype))
+    if (is.null(js$events)) {
+      message("  ESPN schedule failed for ", tri, ": ", attr(js, "error") %||% "no events")
+      return(NULL)
+    }
+    Sys.sleep(0.2)
+    yr <- js$requestedSeason$year %||% js$season$year %||% NA
+    dplyr::bind_rows(lapply(js$events, function(e) {
+      cmp  <- e$competitions[[1]]
+      me   <- Filter(function(t) .nba_abbr(t$team$abbreviation) == tri, cmp$competitors)
+      them <- Filter(function(t) .nba_abbr(t$team$abbreviation) != tri, cmp$competitors)
+      if (!length(me) || !length(them)) return(NULL)
+      me <- me[[1]]; them <- them[[1]]
+      st <- cmp$status$type
+      when <- as.POSIXct(e$date, format = "%Y-%m-%dT%H:%MZ", tz = "UTC")
+      tv <- paste(vapply(cmp$broadcasts %||% list(),
+                         function(b) b$media$shortName %||% "", ""), collapse = "/")
+      score <- function(t) t$score$displayValue %||% ""
+      tibble::tibble(
+        event_id    = as.character(e$id),
+        season_year = as.numeric(yr),
+        season_type = as.character(seasontype),
+        Team        = tri,
+        opp         = .nba_abbr(them$team$abbreviation),
+        location    = ifelse(me$homeAway == "home", "Home", "Away"),
+        game_date   = as.Date(format(when, "%Y-%m-%d", tz = "America/New_York")),
+        status      = st$name %||% "",
+        completed   = isTRUE(st$completed),
+        Time = dplyr::case_when(
+          isTRUE(st$completed) ~ paste0(ifelse(isTRUE(me$winner), "W ", "L "), score(me), "-", score(them)),
+          grepl("POSTPONED|CANCELED", st$name %||% "") ~ "Postponed",
+          TRUE ~ trimws(format(when, "%I:%M %p", tz = "America/New_York"))
+        ),
+        TV = tv
+      )
+    }))
+  }))
+  .espn_sched_cache[[key]] <- out
+  out
+}
+
+# Drop-in replacement for get_team_schedule() + process_schedule():
+# returns one team's processed schedule with the same columns as before.
+espn_team_schedule <- function(x, seasontype) {
+  tri <- toupper(x)
+  tri <- ifelse(tri == "UTAH", "UTA", ifelse(tri == "NO", "NOP", tri))
+  sched <- espn_league_schedule(seasontype)
+  if (!nrow(sched)) return(NULL)
+  teams <- nba_teams_table()
+  sched |>
+    dplyr::filter(Team == tri) |>
+    dplyr::arrange(game_date) |>
+    dplyr::left_join(teams |> dplyr::select(slugTeam, idTeam, nameTeam, urlThumbnailTeam, cityTeam),
+                     by = c("opp" = "slugTeam")) |>
+    dplyr::mutate(slugTeam = opp, Opponent = cityTeam, game_number = dplyr::row_number()) |>
+    dplyr::select(game_date, location, Opponent, slugTeam, idTeam, nameTeam,
+                  urlThumbnailTeam, Team, game_number, TV, Time)
 }
