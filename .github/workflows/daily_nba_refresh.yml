@@ -5,6 +5,11 @@ on:
     # GitHub cron is UTC: daily 11:41 UTC = 4:41am Pacific (3:41am after DST ends)
     - cron: '41 11 * * *'
   workflow_dispatch:   # adds a "Run workflow" button for manual runs
+    inputs:
+      dry_run:
+        description: 'Dry run (test only: nothing is published, emailed, or rotated)'
+        type: boolean
+        default: true
 
 permissions:
   contents: write   # lets the script push the refreshed files to this repo
@@ -24,8 +29,10 @@ jobs:
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
       PROPBETIQ_ROTATION_FILE: url_rotation.R
       PROPBETIQ_SLUGS_FILE: .current_slugs.json
+      PROPBETIQ_NBA_SOURCES_FILE: nba_data_sources.R
       VROOM_CONNECTION_SIZE: '262144'
       TZ: America/Los_Angeles
+      PROPBETIQ_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -81,13 +88,17 @@ jobs:
             timelyportfolio/dataui
             kcuilla/reactablefmtr
 
-      # Keeps already-downloaded play-by-play games between runs so only new games are fetched
-      - name: Restore play-by-play cache
+      # Keeps already-downloaded play-by-play and box scores between runs so only new games are fetched
+      - name: Restore NBA data cache
         uses: actions/cache@v4
         with:
-          path: data/pbp
-          key: nba-pbp-${{ github.run_id }}
-          restore-keys: nba-pbp-
+          path: |
+            data/pbp
+            data/box
+          key: nba-data-${{ github.run_id }}
+          restore-keys: |
+            nba-data-
+            nba-pbp-
 
       - name: Remember current link slugs
         run: cp .current_slugs.json /tmp/slugs_before.json
@@ -95,7 +106,16 @@ jobs:
       - name: Run Compiled_daily_run.R
         run: Rscript Compiled_daily_run.R
 
+      - name: Save test output (dry run only)
+        if: ${{ inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nba-dry-run-output
+          path: NBA/propbetiq_nba.json
+          retention-days: 7
+
       - name: Check the site was actually updated
+        if: ${{ !inputs.dry_run }}
         run: |
           git fetch --quiet origin main
           if ! git log origin/main --since="8 hours ago" --grep="PropBetIQ NBA update" --oneline | grep -q .; then
@@ -104,6 +124,7 @@ jobs:
           fi
 
       - name: Save rotated links and open a reminder issue
+        if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

@@ -10,8 +10,14 @@ pkgs <- c(
 
 invisible(lapply(pkgs, library, character.only = TRUE))
 
+# Dry run (set PROPBETIQ_DRY_RUN=1): builds everything but sends no emails,
+# pushes nothing to GitHub and never rotates links.
+DRY_RUN <- nzchar(Sys.getenv("PROPBETIQ_DRY_RUN"))
+if (DRY_RUN) message("*** DRY RUN: no emails, no GitHub push, no link rotation ***")
+
 # Email credentials: GitHub Actions uses the SMTP_PASSWORD secret; local runs use the gmail_creds file
 smtp_creds <- function() {
+  if (DRY_RUN) stop("dry run - email skipped")
   if (nzchar(Sys.getenv("SMTP_PASSWORD"))) {
     blastula::creds_envvar(user = "backironanalytics@gmail.com", pass_envvar = "SMTP_PASSWORD", provider = "gmail")
   } else {
@@ -55,19 +61,22 @@ You will receive another email when the run completes or if it fails.
 # ── Config ────────────────────────────────────────────────────────────────────
 DATA_DIR    <- "data/pbp"           # where parquet files live
 LOG_DIR     <- "logs"
-SEASON      <- 2026                 # hoopR uses ending year (2024-25 = 2025)
+SEASON      <- 2027                 # hoopR uses ending year (2026-27 = 2027)
 SLEEP_SEC   <- 1.5                  # polite delay per worker (keeps API happy)
 MAX_RETRIES <- 5                    # retry attempts per game on API failure
 N_WORKERS   <- 3                    # parallel workers — don't exceed 6 or ESPN
 # will rate-limit you. 4 is the safe default.
 
 source(Sys.getenv("PROPBETIQ_ROTATION_FILE", "C:/Users/ccrai/OneDrive/Documents/DDS/url_rotation.R"))
+# NBA data helpers (ESPN / hoopR) — loaded early so the play-by-play step can use the ESPN schedule
+source(Sys.getenv("PROPBETIQ_NBA_SOURCES_FILE", "C:/Users/ccrai/OneDrive/Documents/DDS/nba_data_sources.R"))
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 dir.create(DATA_DIR, recursive = TRUE, showWarnings = FALSE)
 dir.create(LOG_DIR,  recursive = TRUE, showWarnings = FALSE)
 
-log_appender(appender_file(file.path(LOG_DIR, glue("pbp_{Sys.Date()}.log"))))
+# Log to the file AND the console, so play-by-play progress shows in the GitHub Actions log
+log_appender(appender_tee(file.path(LOG_DIR, glue("pbp_{Sys.Date()}.log"))))
 log_threshold(INFO)
 log_info("=== NBA PBP Pipeline START | Season {SEASON} | Workers {N_WORKERS} ===")
 
@@ -170,8 +179,13 @@ safe_pbp <- function(game_id, retries = MAX_RETRIES, sleep = SLEEP_SEC) {
 get_season_game_ids <- function(season = SEASON, max_retries = 3) {
   log_info("Fetching schedule for season {season}...")
   
-  schedule <- NULL
-  attempt  <- 0
+  # ESPN's schedule API is always current (hoopR's schedule file can lag or not
+  # exist yet early in the season) — try it first, fall back to hoopR below.
+  schedule <- tryCatch(espn_pbp_schedule(season), error = function(e) {
+    log_warn("ESPN schedule failed: {conditionMessage(e)}"); NULL })
+  if (!is.null(schedule) && nrow(schedule) == 0) schedule <- NULL
+  if (!is.null(schedule)) log_info("Using ESPN schedule: {nrow(schedule)} games, {sum(schedule$status_type_completed)} completed")
+  attempt  <- if (is.null(schedule)) 0 else max_retries   # skip hoopR loop if ESPN worked
   
   while (is.null(schedule) && attempt < max_retries) {
     attempt  <- attempt + 1
@@ -194,6 +208,15 @@ get_season_game_ids <- function(season = SEASON, max_retries = 3) {
     })
   }
   
+  # hoopR publishes a season's schedule file some time into the season — until
+  # then, use ESPN's schedule API (nba_data_sources.R)
+  if (is.null(schedule) || nrow(schedule) == 0 || !"game_id" %in% names(schedule)) {
+    log_warn("hoopR schedule for {season} unavailable — using ESPN schedule API")
+    schedule <- tryCatch(espn_pbp_schedule(season), error = function(e) {
+      log_warn("ESPN schedule failed: {conditionMessage(e)}"); NULL })
+    if (!is.null(schedule) && nrow(schedule) == 0) schedule <- NULL
+  }
+
   if (is.null(schedule)) {
     log_warn("Schedule unavailable after {max_retries} attempts — using cached game IDs")
     return(data.frame(
@@ -406,9 +429,13 @@ load_all_pbp <- function() {
 
 # ── Main pipeline function ─────────────────────────────────────────────────────
 run_pipeline <- function() {
-  schedule  <- get_season_game_ids(SEASON)
-  to_fetch  <- games_needing_update(schedule)
-  fetch_and_store_pbp(to_fetch)
+  # Check last season too, so any games missing from the cache (e.g. last
+  # season's playoffs) are filled in once. Already-cached games are skipped.
+  for (s in c(SEASON - 1, SEASON)) {
+    schedule  <- get_season_game_ids(s)
+    to_fetch  <- games_needing_update(schedule)
+    fetch_and_store_pbp(to_fetch)
+  }
   log_info("=== Pipeline DONE ===")
 }
 
@@ -475,63 +502,28 @@ nba_teams_active <- tibble::tribble(
   "1610612766",  "CHA"
 )
 
-# nba_commonteamroster() works fine on DigitalOcean — not IP blocked
-all_rosters_raw <- purrr::map(nba_teams_active$team_id, function(tid) {
-  message("Fetching roster for team_id: ", tid)
-  Sys.sleep(1)
-  tryCatch({
-    result <- hoopR::nba_commonteamroster(team_id = tid)
-    result$CommonTeamRoster |>
-      dplyr::mutate(team_id = tid) |>
-      dplyr::left_join(nba_teams_active, by = "team_id")
-  }, error = function(e) {
-    message("Failed TEAM_ID=", tid, ": ", conditionMessage(e))
-    NULL
-  })
-}) |>
-  dplyr::bind_rows()
+# Rosters are built below (after the game logs load) from ESPN —
+# stats.nba.com (nba_commonteamroster) times out from GitHub Actions.
 
-library(nbastatR)
+# ── NBA box scores from ESPN / hoopR (stats.nba.com blocks cloud servers) ────
+source(Sys.getenv("PROPBETIQ_NBA_SOURCES_FILE", "C:/Users/ccrai/OneDrive/Documents/DDS/nba_data_sources.R"))
 
-Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
+message("Loading prior season (", prior_season_label, ") game logs (ESPN / hoopR)...")
+playerdata_prior <- nba_game_logs(season_previous, season_complete = TRUE)
+if (is.null(playerdata_prior) || nrow(playerdata_prior) == 0) {
+  stop("No prior-season NBA box scores could be loaded (hoopR::load_nba_player_box)")
+}
+gamedata_prior <- nba_team_games(playerdata_prior)
+message("  Loaded ", nrow(playerdata_prior), " prior season player games")
 
-# ── Prior season team data — always available (includes Regular + Playoffs) ──
-message("Loading prior season (", prior_season_label, ") team game data...")
-gamedata_prior <- nbastatR::game_logs(
-  seasons      = season_previous,
-  result_types = "team",
-  season_types = c("Regular Season", "Playoffs")
+message("Attempting current season (", current_season_label, ") game logs...")
+playerdata_current <- tryCatch(
+  nba_game_logs(season_current, season_complete = FALSE),
+  error = function(e) { message("  Current season data not yet available: ", conditionMessage(e)); NULL }
 )
-message("  Loaded ", nrow(gamedata_prior), " prior season team games")
-
-# ── Current season team data — may not exist yet pre-Oct 21 ──────────────────
-message("Attempting current season (", current_season_label, ") team game data...")
-gamedata_current <- tryCatch({
-  data <- tryCatch({
-    nbastatR::game_logs(
-      seasons      = season_current,
-      result_types = "team",
-      season_types = c("Regular Season", "Playoffs")
-    )
-  }, error = function(e) {
-    message("  Playoffs not available yet — Regular Season only")
-    nbastatR::game_logs(
-      seasons      = season_current,
-      result_types = "team",
-      season_types = "Regular Season"
-    )
-  })
-  if (nrow(data) == 0) {
-    message("  Current season data returned 0 rows — treating as unavailable")
-    NULL
-  } else {
-    message("  Loaded ", nrow(data), " current season team games")
-    data
-  }
-}, error = function(e) {
-  message("  Current season data not yet available: ", conditionMessage(e))
-  NULL
-})
+if (!is.null(playerdata_current) && nrow(playerdata_current) == 0) playerdata_current <- NULL
+gamedata_current <- nba_team_games(playerdata_current)
+if (!is.null(gamedata_current)) message("  Loaded ", nrow(playerdata_current), " current season player games")
 
 # ── Combine or fall back ─────────────────────────────────────────────────────
 if (!is.null(gamedata_current)) {
@@ -548,39 +540,7 @@ if (!is.null(gamedata_current)) {
   message("✓ Using only ", prior_season_label, " team data (", nrow(gamedata), " games)")
 }
 
-# ── Prior season player data — always available ─────────────────────────────
-message("Loading prior season player game logs...")
-playerdata_prior <- nbastatR::game_logs(
-  seasons      = season_previous,
-  result_types = "player",
-  season_types = c("Regular Season", "Playoffs")
-)
-message("  Loaded ", nrow(playerdata_prior), " prior season player games")
-
-# ── Current season player data — may not exist yet ──────────────────────────
-message("Attempting current season player game logs...")
-playerdata_current <- tryCatch({
-  data <- tryCatch({
-    nbastatR::game_logs(
-      seasons      = season_current,
-      result_types = "player",
-      season_types = c("Regular Season", "Playoffs")
-    )
-  }, error = function(e) {
-    message("  Playoffs not available yet — Regular Season only")
-    nbastatR::game_logs(
-      seasons      = season_current,
-      result_types = "player",
-      season_types = "Regular Season"
-    )
-  })
-  if (nrow(data) == 0) NULL else data
-}, error = function(e) {
-  message("  Current season player data not yet available")
-  NULL
-})
-
-
+# (Player game logs for both seasons are loaded above from ESPN / hoopR)
 
 # ── Combine prior + current into unified playerdata ──────────────────────────
 playerdata <- if (!is.null(playerdata_current)) {
@@ -591,14 +551,18 @@ playerdata <- if (!is.null(playerdata_current)) {
   playerdata_prior
 }
 
+# ── Active rosters: ESPN rosters matched to official NBA player IDs ─────────
+message("Loading active rosters from ESPN...")
+all_rosters_raw <- nba_rosters(playerdata)
+
 # Choose reference season for hit rate calculations
 current_season <- if (!is.null(playerdata_current) && nrow(playerdata_current) > 0) {
     current_season <- current_season_label
     # season_current stays as-is (2027) since we have current-season data
   } else {
-    current_season <- prior_season_label
     # Override season_current to prior season year — no current data exists yet
     season_current <- season_previous
+    prior_season_label   # value of this block -> current_season
   }
 last_season <- prior_season_label
 message("Hit rate calculations will reference season: ", current_season, " (year: ", season_current, ")")
@@ -639,6 +603,8 @@ DATA_DIR <- "data/pbp"
 pbp_ds <- arrow::open_dataset(DATA_DIR)   # Arrow Dataset — no RAM spike
 
 play_play <- pbp_ds %>% collect()
+message("Play-by-play on disk: ", dplyr::n_distinct(play_play$game_id), " games, latest ",
+        suppressWarnings(max(as.Date(play_play$game_date), na.rm = TRUE)))
 
 play_play <- play_play |>
   left_join(game_type_lookup, by = "game_date") |>
@@ -654,7 +620,7 @@ play_play <- play_play |>
 
 #Schedule
 
-teams <- nbastatR::nba_teams(league = "NBA")
+teams <- nba_teams_table()   # replaces nbastatR::nba_teams() (stats.nba.com)
 
 teams <- teams %>% dplyr::filter(idDivision != 0) %>% 
   dplyr::select(cityTeam, slugTeam, idTeam, nameTeam, urlThumbnailTeam) %>% rename(Opponent = cityTeam) %>% 
@@ -740,8 +706,8 @@ process_schedule <- function(schedule_raw) {
 }
 
 # Regular season
-schedule_raw <- lapply(slugteams_list, get_team_schedule, seasontype = 2)
-schedule     <- process_schedule(schedule_raw)
+schedule_raw <- lapply(slugteams_list, espn_team_schedule, seasontype = 2)  # ESPN API (espn.com pages block GitHub)
+schedule     <- dplyr::bind_rows(schedule_raw)
 
 # Check for upcoming regular season games
 upcoming_regular <- schedule |>
@@ -761,8 +727,8 @@ message("Regular season active: ", regular_season_active)
 # Switch to playoffs if regular season is done
 if (!regular_season_active) {
   message("Regular season complete — switching to playoff schedule...")
-  schedule_raw <- lapply(slugteams_list, get_team_schedule, seasontype = 3)
-  schedule     <- process_schedule(schedule_raw)
+  schedule_raw <- lapply(slugteams_list, espn_team_schedule, seasontype = 3)  # ESPN API (espn.com pages block GitHub)
+  schedule     <- dplyr::bind_rows(schedule_raw)
   message("Playoff schedule loaded — ", nrow(schedule), " rows")
 } else {
   message("Regular season schedule loaded — ", nrow(upcoming_regular), " upcoming games")
@@ -1014,7 +980,8 @@ n_cores <- max(1L, parallelly::availableCores() - 2L)
 message("Launching cluster with ", n_cores, " workers...")
 
 cl <- makeCluster(n_cores, type = "PSOCK")
-on.exit(stopCluster(cl), add = TRUE)
+# (cluster is stopped after the hit rates are collected below — a top-level
+#  on.exit() would close it immediately when this script is run with source())
 
 # Export all datasets and shared objects once
 clusterExport(cl, varlist = c(
@@ -1057,6 +1024,7 @@ results_opponent     <- bind_rows(results_raw_opponent)
 results_all          <- bind_rows(results_raw_all)
 
 message("Done. Rows: ", nrow(results), " | Players: ", n_distinct(results$idPlayer))
+stopCluster(cl)
 
 # ── Pivot all eight splits ─────────────────────────────────────────────────────
 pivot_and_tag <- function(results_df, type_label) {
@@ -2050,6 +2018,10 @@ bucket_conditional <- function(data, half_col, bucket_fn, bucket_order, prefix) 
   
   # Get player column
   ou_cols    <- names(data)[grepl(paste0("^", prefix), names(data))]
+  if (is.null(data) || nrow(data) == 0 || length(ou_cols) == 0) {
+    message("No data to bucket for ", prefix, " — skipping")
+    return(data)
+  }
   player_col <- setdiff(names(data), c(ou_cols, half_col, "n_games", "Type"))
   
   # Pivot back to long format
@@ -5219,6 +5191,10 @@ tryCatch({
 # ══════════════════════════════════════════════════════════════════════════════
 
 push_nba_to_github <- function() {
+  if (DRY_RUN) {
+    message("  DRY RUN - skipping GitHub push and link rotation. Output left at NBA/propbetiq_nba.json")
+    return(invisible(NULL))
+  }
   
   # GitHub Actions supplies GH_PUSH_TOKEN; local runs fall back to the token file
   github_token <- Sys.getenv("GH_PUSH_TOKEN")
