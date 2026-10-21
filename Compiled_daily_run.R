@@ -75,7 +75,8 @@ source(Sys.getenv("PROPBETIQ_NBA_SOURCES_FILE", "C:/Users/ccrai/OneDrive/Documen
 dir.create(DATA_DIR, recursive = TRUE, showWarnings = FALSE)
 dir.create(LOG_DIR,  recursive = TRUE, showWarnings = FALSE)
 
-log_appender(appender_file(file.path(LOG_DIR, glue("pbp_{Sys.Date()}.log"))))
+# Log to the file AND the console, so play-by-play progress shows in the GitHub Actions log
+log_appender(appender_tee(file.path(LOG_DIR, glue("pbp_{Sys.Date()}.log"))))
 log_threshold(INFO)
 log_info("=== NBA PBP Pipeline START | Season {SEASON} | Workers {N_WORKERS} ===")
 
@@ -178,8 +179,13 @@ safe_pbp <- function(game_id, retries = MAX_RETRIES, sleep = SLEEP_SEC) {
 get_season_game_ids <- function(season = SEASON, max_retries = 3) {
   log_info("Fetching schedule for season {season}...")
   
-  schedule <- NULL
-  attempt  <- 0
+  # ESPN's schedule API is always current (hoopR's schedule file can lag or not
+  # exist yet early in the season) — try it first, fall back to hoopR below.
+  schedule <- tryCatch(espn_pbp_schedule(season), error = function(e) {
+    log_warn("ESPN schedule failed: {conditionMessage(e)}"); NULL })
+  if (!is.null(schedule) && nrow(schedule) == 0) schedule <- NULL
+  if (!is.null(schedule)) log_info("Using ESPN schedule: {nrow(schedule)} games, {sum(schedule$status_type_completed)} completed")
+  attempt  <- if (is.null(schedule)) 0 else max_retries   # skip hoopR loop if ESPN worked
   
   while (is.null(schedule) && attempt < max_retries) {
     attempt  <- attempt + 1
@@ -593,6 +599,8 @@ DATA_DIR <- "data/pbp"
 pbp_ds <- arrow::open_dataset(DATA_DIR)   # Arrow Dataset — no RAM spike
 
 play_play <- pbp_ds %>% collect()
+message("Play-by-play on disk: ", dplyr::n_distinct(play_play$game_id), " games, latest ",
+        suppressWarnings(max(as.Date(play_play$game_date), na.rm = TRUE)))
 
 play_play <- play_play |>
   left_join(game_type_lookup, by = "game_date") |>
