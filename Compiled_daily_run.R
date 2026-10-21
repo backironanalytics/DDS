@@ -802,6 +802,15 @@ cat("Player opponent lookup:\n")
 print(player_opponent_lookup)
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# LEGACY HIT-RATE / MATRIX TABLES
+# Nothing below (until the JSON export) feeds the website JSON — these tables
+# fed the old matrix HTML pages, whose output code is commented out. Wrapped so
+# an error here (e.g. empty tables early in a season) is logged and skipped
+# instead of stopping the run before the JSON is built and published.
+# ══════════════════════════════════════════════════════════════════════════════
+legacy_tables_ok <- tryCatch({
+
 stat_names <- c("fg3a","ftm","pts_reb_ast","fgm","pts_reb","ast_reb","pts_ast","stl_blk","fg3m","stl","blk","tov","pts","ast","treb")
 
 hit_rate_seq <- seq(0.5, 60.5, 1)
@@ -4517,6 +4526,25 @@ all_players_q3_reb <- purrr::map_dfr(player_list, safe_threshold,
 # ── Matrix File Output ───────────────────────────────
 
 library(reactablefmtr)
+
+TRUE
+}, error = function(e) {
+  message("⚠ Legacy hit-rate tables skipped (not used by the website): ", conditionMessage(e))
+  try(parallel::stopCluster(cl), silent = TRUE)
+  FALSE
+})
+
+# normalize_name() is defined inside the section above; make sure it exists
+# for the JSON export even if that section stopped early
+if (!exists("normalize_name")) {
+  normalize_name <- function(x) {
+    x |>
+      stringi::stri_trans_general("Latin-ASCII") |>
+      stringr::str_squish() |>
+      stringr::str_to_lower()
+  }
+}
+
 
 
 # # ══════════════════════════════════════════════════════════════════════════════
