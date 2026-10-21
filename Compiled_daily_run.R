@@ -429,9 +429,13 @@ load_all_pbp <- function() {
 
 # ── Main pipeline function ─────────────────────────────────────────────────────
 run_pipeline <- function() {
-  schedule  <- get_season_game_ids(SEASON)
-  to_fetch  <- games_needing_update(schedule)
-  fetch_and_store_pbp(to_fetch)
+  # Check last season too, so any games missing from the cache (e.g. last
+  # season's playoffs) are filled in once. Already-cached games are skipped.
+  for (s in c(SEASON - 1, SEASON)) {
+    schedule  <- get_season_game_ids(s)
+    to_fetch  <- games_needing_update(schedule)
+    fetch_and_store_pbp(to_fetch)
+  }
   log_info("=== Pipeline DONE ===")
 }
 
