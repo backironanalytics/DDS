@@ -1,0 +1,77 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Inter;src:url('../fonts/InterVariable.ttf');font-weight:100 900}
+@font-face{font-family:JBM;src:url('../fonts/JetBrainsMono-Bold.ttf');font-weight:700}
+@font-face{font-family:Fraunces;src:url('../fonts/Fraunces72pt-Bold.ttf');font-weight:700}
+html,body{margin:0;background:#0B0920}canvas{display:block}
+</style></head><body><canvas id="c" width="1080" height="1350"></canvas>
+<script>
+// == PropBetIQ static data card (1080x1350, Instagram portrait) ==
+// spec: { kicker:'NBA · TONIGHT', player:{name, team, number, colors:{primary,light,secondary,dark}},
+//         prop:{label:'POINTS', line:29.5, matchup:'vs SAS'},
+//         headline:'He clears it when he gets to the line',          // short, data-backed
+//         rows:[{label:'ALL GAMES 2025-26', hits:43, n:68, note:''}, ...],   // 3-6 rows; first row = baseline
+//         highlight:2,                                                // index of the row to emphasize
+//         insight:['Line 1 of the takeaway','Line 2'],                // 1-2 lines
+//         result:{value:32, text:'32 PTS · OVER'} | null,          // optional, for recaps
+//         source:'Data: PropBetIQ · games through Oct 20' }
+const W=1080,H=1350,c=document.getElementById('c'),ctx=c.getContext('2d');
+const C={text:'#EEEBFB',muted:'#9C95C9',orange:'#F7A325',yellow:'#FFD54A',green:'#34D399',red:'#F87171',cyan:'#67E8F9'};
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function txt(s,x,y,font,col,align='left',base='alphabetic'){ctx.font=font;ctx.fillStyle=col;ctx.textAlign=align;ctx.textBaseline=base;ctx.fillText(s,x,y)}
+const fmt=x=>Number.isInteger(x)?String(x):x.toFixed(1);
+function wrap(s,maxW,font){ctx.font=font;const w=s.split(' '),L=[];let cur='';for(const x of w){const t=cur?cur+' '+x:x;if(ctx.measureText(t).width>maxW&&cur){L.push(cur);cur=x}else cur=t}if(cur)L.push(cur);return L}
+function badge(D,cx,cy,R){
+  const T=D.player.colors; const g=ctx.createRadialGradient(cx-20,cy-30,8,cx,cy,R); g.addColorStop(0,T.light||T.primary); g.addColorStop(.6,T.primary); g.addColorStop(1,T.dark);
+  ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,7); ctx.fillStyle=g; ctx.fill(); ctx.clip();
+  ctx.fillStyle=T.secondary; ctx.globalAlpha=.85; ctx.beginPath(); ctx.moveTo(cx-R,cy+20); ctx.lineTo(cx+R,cy-40); ctx.lineTo(cx+R,cy-28); ctx.lineTo(cx-R,cy+32); ctx.closePath(); ctx.fill(); ctx.globalAlpha=1;
+  const k=R/74; ctx.fillStyle='#0B1530';
+  ctx.beginPath(); ctx.moveTo(cx-70*k,cy+R); ctx.bezierCurveTo(cx-66*k,cy+30*k,cx-40*k,cy+20*k,cx-18*k,cy+16*k); ctx.lineTo(cx+18*k,cy+16*k); ctx.bezierCurveTo(cx+40*k,cy+20*k,cx+66*k,cy+30*k,cx+70*k,cy+R); ctx.closePath(); ctx.fill();
+  ctx.fillRect(cx-11*k,cy-2*k,22*k,22*k); ctx.beginPath(); ctx.ellipse(cx,cy-24*k,24*k,29*k,0,0,7); ctx.fill();
+  ctx.strokeStyle=T.primary; ctx.lineWidth=4*k; ctx.beginPath(); ctx.moveTo(cx-18*k,cy+16*k); ctx.lineTo(cx,cy+34*k); ctx.lineTo(cx+18*k,cy+16*k); ctx.stroke();
+  txt(String(D.player.number??''),cx,cy+60*k,`900 ${Math.round(30*k)}px Inter`,T.secondary,'center','middle');
+  ctx.restore(); ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,7); ctx.lineWidth=5; ctx.strokeStyle=C.orange; ctx.shadowColor=C.orange; ctx.shadowBlur=16; ctx.stroke(); ctx.restore();
+}
+function render(D){
+  const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#15112F'); g.addColorStop(1,'#08061A'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  const orb=(x,y,r,col)=>{const rg=ctx.createRadialGradient(x,y,0,x,y,r);rg.addColorStop(0,col);rg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=rg;ctx.fillRect(0,0,W,H)};
+  orb(900,140,620,'rgba(140,120,255,.18)'); orb(160,1200,600,'rgba(247,163,37,.07)');
+  // header
+  txt(D.kicker||'',64,92,'700 22px JBM',C.orange);
+  const nameLines=wrap(D.player.name.toUpperCase(),760,'900 64px Inter'); nameLines.forEach((l,i)=>txt(l,64,166+i*68,'900 64px Inter','#fff'));
+  let y=166+(nameLines.length-1)*68;
+  txt(`${D.player.team||''}`,64,y+46,'700 22px JBM',C.muted);
+  badge(D,940,150,92);
+  // prop pill
+  y+=96; ctx.font='800 34px Inter'; const pl=`${D.prop.label} O/U ${fmt(D.prop.line)}`; const pw=ctx.measureText(pl).width;
+  rr(64,y,pw+48,64,32); ctx.fillStyle='rgba(255,213,74,.12)'; ctx.fill(); ctx.strokeStyle=C.yellow; ctx.lineWidth=2.5; ctx.stroke();
+  txt(pl,88,y+43,'800 34px Inter',C.yellow);
+  if(D.prop.matchup) txt(D.prop.matchup,64+pw+72,y+43,'700 26px JBM',C.text);
+  // headline
+  y+=128; const hl=wrap(D.headline||'',950,'800 44px Inter'); hl.forEach((l,i)=>txt(l,64,y+i*54,'800 44px Inter','#fff')); y+=hl.length*54+24;
+  // hit-rate board
+  txt('HIT RATE BOARD',64,y,'700 18px JBM',C.muted); y+=22;
+  const rows=D.rows||[], rowH=Math.min(108,Math.floor((1090-y)/Math.max(1,rows.length)));
+  rows.forEach((r,i)=>{ const top=y+i*rowH, hi=i===D.highlight, p=r.n?r.hits/r.n:0, col=p>=.6?C.green:p<=.4?C.red:C.yellow;
+    rr(64,top+6,952,rowH-14,18); ctx.fillStyle=hi?'rgba(103,232,249,.10)':'rgba(255,255,255,.04)'; ctx.fill(); if(hi){ctx.strokeStyle=C.cyan;ctx.lineWidth=2.5;ctx.stroke()}
+    txt(r.label,92,top+rowH/2-6,'800 26px Inter',hi?'#fff':C.text,'left','middle');
+    if(r.note) txt(r.note,92,top+rowH/2+24,'700 15px JBM',C.muted,'left','middle');
+    const bx=560,bw=300,by=top+rowH/2-9; rr(bx,by,bw,18,9); ctx.fillStyle='rgba(255,255,255,.08)'; ctx.fill();
+    rr(bx,by,Math.max(18,bw*p),18,9); ctx.fillStyle=col; ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.5)'; ctx.fillRect(bx+bw*.5-1,by-6,2,30);
+    txt(`${Math.round(p*100)}%`,1000,top+rowH/2-8,'900 34px Inter',col,'right','middle');
+    txt(`${r.hits}/${r.n}`,1000,top+rowH/2+22,'700 16px JBM',C.muted,'right','middle'); });
+  y+=rows.length*rowH+18;
+  // insight / result
+  if(D.result){ rr(64,y,952,86,20); const ov=/OVER/.test(D.result.text); ctx.fillStyle=ov?'rgba(52,211,153,.14)':'rgba(248,113,113,.14)'; ctx.fill(); ctx.strokeStyle=ov?C.green:C.red; ctx.lineWidth=2.5; ctx.stroke();
+    txt('RESULT',92,y+52,'700 18px JBM',C.muted); txt(D.result.text,1000,y+55,'900 36px Inter',ov?C.green:C.red,'right'); y+=110; }
+  (D.insight||[]).slice(0,2).forEach((l,i)=>wrap(l,950,'600 26px Inter').slice(0,2).forEach((w,j)=>{txt(w,64,y+20,'600 26px Inter',C.text); y+=36}));
+  // footer
+  ctx.fillStyle='rgba(255,255,255,.08)'; ctx.fillRect(64,1218,952,2);
+  ctx.font='700 46px Fraunces'; const a1=ctx.measureText('PropBet').width; txt('PropBet',64,1285,'700 46px Fraunces',C.text); txt('IQ',64+a1,1285,'700 46px Fraunces',C.orange);
+  txt('Hit rates for every prop · free trial, link in bio',1016,1272,'600 20px Inter',C.muted,'right');
+  txt(D.source||'Data: PropBetIQ',1016,1300,'600 15px Inter','rgba(255,255,255,.35)','right');
+  txt('@propbetiq',64,1324,'700 16px JBM','rgba(255,255,255,.4)');
+}
+async function init(d){ await Promise.all(['800 20px Inter','900 20px Inter','600 20px Inter','700 20px JBM','700 20px Fraunces'].map(f=>document.fonts.load(f))); render(d); return true }
+</script></body></html>
