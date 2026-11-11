@@ -1,0 +1,96 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face{font-family:Inter;src:url('../fonts/InterVariable.ttf');font-weight:100 900}
+@font-face{font-family:JBM;src:url('../fonts/JetBrainsMono-Bold.ttf');font-weight:700}
+@font-face{font-family:Fraunces;src:url('../fonts/Fraunces72pt-Bold.ttf');font-weight:700}
+body{margin:0}</style></head><body><canvas id="c" width="1080" height="1350"></canvas><script>
+const cv=document.getElementById('c'),ctx=cv.getContext('2d'),W=1080,H=1350;
+const C={text:'#EEEBFB',muted:'#9C95C9',orange:'#F7A325',yellow:'#FFD54A',green:'#34D399',red:'#F87171',card:'rgba(255,255,255,.045)'};
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function txt(s,x,y,f,c,a='left'){ctx.font=f;ctx.fillStyle=c;ctx.textAlign=a;ctx.fillText(s,x,y)}
+function wrap(s,x,y,w,f,c,lh){ctx.font=f;let line='',yy=y;for(const wd of s.split(' ')){const t=line?line+' '+wd:wd;if(ctx.measureText(t).width>w&&line){txt(line,x,yy,f,c);line=wd;yy+=lh}else line=t}txt(line,x,yy,f,c);return yy}
+function bg(){const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#15112F');g.addColorStop(1,'#08061A');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ const o=(x,y,r,c)=>{const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,c);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)};o(900,120,600,'rgba(140,120,255,.15)');o(120,1250,600,'rgba(247,163,37,.07)')}
+function footer(src){ctx.strokeStyle='rgba(255,255,255,.1)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(50,1270);ctx.lineTo(1030,1270);ctx.stroke();
+ txt('PROPBETIQ',50,1312,'700 24px JBM',C.orange);txt(src,1030,1312,'700 20px JBM',C.muted,'right')}
+function ball(x,y,r){const g=ctx.createRadialGradient(x-r*.35,y-r*.35,r*.1,x,y,r);g.addColorStop(0,'#FFB065');g.addColorStop(.55,'#E8772E');g.addColorStop(1,'#A84A12');ctx.save();ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fillStyle=g;ctx.fill();ctx.clip();ctx.strokeStyle='#2A1405';ctx.lineWidth=r*.1;ctx.beginPath();ctx.moveTo(x-r,y);ctx.lineTo(x+r,y);ctx.moveTo(x,y-r);ctx.lineTo(x,y+r);ctx.stroke();ctx.beginPath();ctx.arc(x-r*1.25,y,r*.95,-1.1,1.1);ctx.stroke();ctx.beginPath();ctx.arc(x+r*1.25,y,r*.95,Math.PI-1.1,Math.PI+1.1);ctx.stroke();ctx.restore()}
+let D=null;
+// ---------- MONDAY ----------
+function court(ox,oy,k){ // ox,oy = pixel of rim; k px per ft; y up the court = negative pixel
+ const P=(x,y)=>[ox+(x-25)*k,oy-y*k];ctx.save();ctx.strokeStyle='rgba(255,255,255,.28)';ctx.lineWidth=3;
+ const [bx1,by]=P(0,-5.25),[bx2]=P(50,-5.25),[,ty]=P(0,30);ctx.beginPath();ctx.moveTo(bx1,ty);ctx.lineTo(bx1,by);ctx.lineTo(bx2,by);ctx.lineTo(bx2,ty);ctx.stroke();
+ ctx.beginPath();const [kx]=P(17,0),[kx2]=P(33,0),[,fty]=P(0,13.75);ctx.rect(kx,fty,kx2-kx,by-fty);ctx.stroke();
+ ctx.beginPath();ctx.arc(ox,fty,6*k,Math.PI,2*Math.PI);ctx.stroke();
+ const [c1]=P(3.05,0),[c2]=P(46.95,0),[,cy]=P(0,8.8);ctx.beginPath();ctx.moveTo(c1,by);ctx.lineTo(c1,cy);ctx.stroke();ctx.beginPath();ctx.moveTo(c2,by);ctx.lineTo(c2,cy);ctx.stroke();
+ const a=Math.acos(21.95/23.75);ctx.beginPath();ctx.arc(ox,oy,23.75*k,Math.PI+a,2*Math.PI-a);ctx.stroke();
+ ctx.strokeStyle='#FF6B2C';ctx.beginPath();ctx.arc(ox,oy,0.75*k,0,7);ctx.stroke();ctx.strokeStyle='rgba(255,255,255,.5)';ctx.beginPath();ctx.moveTo(ox-3*k,oy+1.25*k);ctx.lineTo(ox+3*k,oy+1.25*k);ctx.stroke();ctx.restore();return P}
+function zone(x,y){const d=Math.hypot(x-25,y);if((Math.abs(x-25)>=21.9&&y<=8.8)||d>=23.7)return'3';if(d<4)return'rim';if(d<14)return'paint';return'mid'}
+function hexes(P,k){const R=2.7,shots=D.wemby.shots.filter(s=>s[1]<=30),bins={};
+ const h=Math.sqrt(3)*R;shots.forEach(([x,y,m])=>{const q=(Math.sqrt(3)/3*(x)-1/3*(y+6))/R,r=(2/3*(y+6))/R;let rx=Math.round(q),ry=Math.round(r),rz=Math.round(-q-r);const dx=Math.abs(rx-q),dy=Math.abs(ry-r),dz=Math.abs(rz+q+r);if(dx>dy&&dx>dz)rx=-ry-rz;else if(dy>dz)ry=-rx-rz;const key=rx+','+ry;(bins[key]=bins[key]||{n:0,m:0,q:rx,r:ry}).n++;bins[key].m+=m});
+ const mx=Math.max(...Object.values(bins).map(b=>b.n));
+ Object.values(bins).forEach(b=>{const cx=R*Math.sqrt(3)*(b.q+b.r/2),cy=R*1.5*b.r-6;const [px,py]=P(cx,cy);const sz=R*k*(0.42+0.55*Math.sqrt(b.n/mx));
+  const z=zone(cx,cy),lg=D.wemby.league[z],diff=(b.m+3*lg)/(b.n+3)-lg;const t=Math.max(-1,Math.min(1,diff/0.12));const col=t>0?`rgba(52,211,153,${.35+.6*t})`:`rgba(248,113,113,${.35+.6*-t})`;
+  ctx.beginPath();for(let i=0;i<6;i++){const a=Math.PI/180*(60*i-30);ctx.lineTo(px+sz*Math.cos(a),py+sz*Math.sin(a))}ctx.closePath();ctx.fillStyle=b.n<3?'rgba(255,255,255,.18)':col;ctx.fill()})}
+function dots(x,y,res,col,r=13){res.forEach((o,i)=>{ctx.beginPath();ctx.arc(x+i*(r*2+7),y,r,0,7);ctx.fillStyle=o?C.green:C.red;ctx.globalAlpha=o?1:.85;ctx.fill();ctx.globalAlpha=1})}
+function monday(){bg();
+ txt('MONDAY · PLAYER SCOUTING REPORT',50,80,'700 24px JBM',C.orange);
+ txt('VICTOR WEMBANYAMA',50,160,'900 78px Inter','#fff');txt('SAN ANTONIO · LAST 10 GAMES VS CLOSING LINES',52,205,'700 22px JBM',C.muted);
+ txt('Bet the bucket.',50,290,'700 60px Fraunces','#fff');txt('Not the boards.',470,290,'700 60px Fraunces',C.orange);
+ // left: shot chart
+ rr(40,330,520,560,26);ctx.fillStyle=C.card;ctx.fill();
+ txt('WHERE HIS SHOTS COME FROM',70,378,'700 22px JBM',C.text);txt('229 shots this season',70,408,'600 22px Inter',C.muted);
+ const P=court(300,772,10.4);hexes(P,10.4);
+ txt('size = volume',70,870,'700 18px JBM',C.muted);ctx.fillStyle=C.green;ctx.fillRect(260,856,18,18);txt('above league avg',284,870,'700 18px JBM',C.muted);ctx.fillStyle=C.red;ctx.fillRect(460,856,18,18);txt('below',484,870,'700 18px JBM',C.muted);
+ // right: hit rates
+ rr(580,330,460,560,26);ctx.fillStyle=C.card;ctx.fill();
+ txt('HIT RATE VS THE LINE',610,378,'700 22px JBM',C.text);txt('each dot = one game vs that night’s line',610,408,'600 20px Inter',C.muted);
+ D.wemby.rows.forEach((r,i)=>{const y=470+i*90,over=r.o>=6,under=10-r.o>=6,col=r.o>=7?C.green:(10-r.o>=6?C.red:C.yellow);
+  txt(r.label,610,y,'800 28px Inter','#fff');txt(r.line,610,y+30,'700 18px JBM',C.muted);
+  txt(r.o>=5?`OVER ${r.o}/10`:`UNDER ${10-r.o}/10`,1010,y,'900 30px Inter',col,'right');dots(800-170,y+48-6,r.res,col,9)});
+ // insight cards
+ const cards=[['78%','at the rim','League average is 67%. 43% of his shots come from there.',C.green],['6.3','threes tried a night','Only 30% go in, but the volume clears 1.5 in 7 of 10.',C.yellow],['4/10','on rebounds','Line sits at 11.5. The books have the boards priced right.',C.red]];
+ cards.forEach(([big,lab,body,col],i)=>{const x=40+i*340,y=920;rr(x,y,320,320,26);ctx.fillStyle=C.card;ctx.fill();txt(big,x+28,y+100,'900 78px Inter',col);txt(lab,x+28,y+142,'800 28px Inter','#fff');wrap(body,x+28,y+196,270,'500 23px Inter',C.text,32)});
+ footer('Each game vs its own closing line · thru Nov 10 · not betting advice')}
+// ---------- SATURDAY ----------
+function ring(cx,cy,r,p,col,label){ctx.lineWidth=16;ctx.strokeStyle='rgba(255,255,255,.08)';ctx.beginPath();ctx.arc(cx,cy,r,0,7);ctx.stroke();ctx.strokeStyle=col;ctx.lineCap='round';ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+p*2*Math.PI);ctx.stroke();ctx.lineCap='butt';
+ txt(label,cx,cy+14,'900 42px Inter','#fff','center')}
+function saturday(){bg();
+ txt('SATURDAY · WEEKEND WATCHLIST',50,80,'700 24px JBM',C.orange);
+ txt('4 props on a streak',50,160,'700 70px Fraunces','#fff');txt('Last 10 games, each vs that night’s line. Green = over, red = under.',52,208,'600 26px Inter',C.muted);
+ D.sat.forEach((c,i)=>{const x=40+(i%2)*510,y=250+Math.floor(i/2)*500,w=490,h=480;rr(x,y,w,h,28);ctx.fillStyle=C.card;ctx.fill();
+  const over=c.side=='OVER',col=over?C.green:C.red;
+  txt(c.name.toUpperCase(),x+30,y+60,'900 36px Inter','#fff');txt(c.team,x+30,y+94,'700 20px JBM',C.muted);
+  rr(x+30,y+118,w-60,56,28);ctx.fillStyle=over?'rgba(52,211,153,.12)':'rgba(248,113,113,.12)';ctx.fill();txt(`${c.prop} ${c.side}  ·  latest line ${c.lineTxt}`,x+w/2,y+155,'800 26px Inter',col,'center');
+  ring(x+105,y+275,64,c.hit/10,col,`${c.hit}/10`);txt(c.side=='OVER'?'overs':'unders',x+105,y+372,'700 20px JBM',C.muted,'center');
+  // mini bars vs line
+  const bx=x+210,by=y+330,bw=250,bh=120,mx=Math.max(...c.g.map(g=>Math.max(g[0],g[1])))*1.1;
+  c.g.forEach(([v,l],j)=>{const gx=bx+j*25,hv=v/mx*bh,hl=l/mx*bh;ctx.fillStyle=v>l?C.green:C.red;ctx.fillRect(gx,by-hv,17,Math.max(3,hv));ctx.fillStyle=C.yellow;ctx.fillRect(gx-3,by-hl-2,23,4)});
+  txt('last 10 →',bx,by+30,'700 18px JBM',C.muted);
+  wrap(c.why,x+30,y+430,w-60,'600 23px Inter',C.text,30)});
+ footer('Yellow tick = that game\u2019s line \u00b7 thru Nov 10 \u00b7 not betting advice')}
+
+function satV(variant){bg();
+ const titles={lolli:['How far over or under','Each stick = one game: points above or below that night’s line.'],tiles:['4 props on a streak','Each tile = one game. Brighter = cleared or missed by more.'],line:['4 props on a streak','The ball = his result. The dashed line = that night’s line.']};
+ txt('SATURDAY · WEEKEND WATCHLIST',50,80,'700 24px JBM',C.orange);txt(titles[variant][0],50,160,'700 66px Fraunces','#fff');txt(titles[variant][1],52,208,'600 25px Inter',C.muted);
+ D.sat.forEach((c,i)=>{const x=40+(i%2)*510,y=250+Math.floor(i/2)*500,w=490,h=480;rr(x,y,w,h,28);ctx.fillStyle=C.card;ctx.fill();
+  const over=c.side=='OVER',col=over?C.green:C.red;
+  txt(c.name.toUpperCase(),x+30,y+60,'900 36px Inter','#fff');txt(c.team,x+30,y+94,'700 20px JBM',C.muted);
+  txt(`${c.hit}/10`,x+w-30,y+66,'900 56px Inter',col,'right');txt(over?'OVERS':'UNDERS',x+w-30,y+94,'700 20px JBM',col,'right');
+  rr(x+30,y+118,w-60,56,28);ctx.fillStyle=over?'rgba(52,211,153,.12)':'rgba(248,113,113,.12)';ctx.fill();txt(`${c.prop} ${c.side}  ·  latest line ${c.lineTxt}`,x+w/2,y+155,'800 26px Inter',col,'center');
+  const L=x+40,R=x+w-40,T=y+222,B=variant=='lolli'?y+352:y+385,n=c.g.length,X=j=>L+(R-L)*(j+.5)/n;
+  if(variant=='lolli'){const m=c.g.map(([v,l])=>v-l),mx=Math.max(...m.map(Math.abs)),mid=(T+B)/2,sc=(B-T)/2/mx;
+   ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(L-10,mid);ctx.lineTo(R+10,mid);ctx.stroke();
+   m.forEach((d,j)=>{const cc=d>0?C.green:C.red,yy=mid-d*sc;ctx.strokeStyle=cc;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(X(j),mid);ctx.lineTo(X(j),yy);ctx.stroke();ctx.beginPath();ctx.arc(X(j),yy,9,0,7);ctx.fillStyle=cc;ctx.fill();
+    txt((d>0?'+':'')+(Math.abs(d)%1?d.toFixed(1):d),X(j),d>0?yy-15:yy+28,'700 15px JBM',cc,'center')})}
+  if(variant=='tiles'){const m=c.g.map(([v,l])=>v-l),mx=Math.max(...m.map(Math.abs)),tw=(R-L)/5-8;
+   c.g.forEach(([v,l],j)=>{const d=v-l,a=.25+.75*Math.abs(d)/mx,tx=L+(j%5)*(tw+8),ty=T+Math.floor(j/5)*92;rr(tx,ty,tw,82,12);ctx.fillStyle=(d>0?'rgba(52,211,153,':'rgba(248,113,113,')+a+')';ctx.fill();
+    txt(String(v),tx+tw/2,ty+44,'900 34px Inter','#fff','center');txt('vs '+l,tx+tw/2,ty+70,'700 14px JBM','rgba(255,255,255,.85)','center')})}
+  if(variant=='line'){const vals=c.g.flatMap(g=>g),mn=Math.min(...vals),mx=Math.max(...vals),pad=(mx-mn)*.15+.5,Y=v=>B-(v-(mn-pad))/((mx+pad)-(mn-pad))*(B-T);
+   ctx.save();ctx.strokeStyle=C.yellow;ctx.lineWidth=3;ctx.setLineDash([10,8]);ctx.beginPath();c.g.forEach(([v,l],j)=>{const a=X(j)-(R-L)/n/2,b=X(j)+(R-L)/n/2;j?ctx.lineTo(a,Y(l)):ctx.moveTo(a,Y(l));ctx.lineTo(b,Y(l))});ctx.stroke();ctx.restore();
+   ctx.strokeStyle='#fff';ctx.lineWidth=4;ctx.beginPath();c.g.forEach(([v],j)=>j?ctx.lineTo(X(j),Y(v)):ctx.moveTo(X(j),Y(v)));ctx.stroke();
+   c.g.forEach(([v,l],j)=>{const cc=v>l?C.green:C.red;ctx.beginPath();ctx.arc(X(j),Y(v),15,0,7);ctx.strokeStyle=cc;ctx.lineWidth=4;ctx.stroke();ball(X(j),Y(v),11)})}
+  txt('oldest → latest',R,y+420,'700 16px JBM',C.muted,'right');
+  wrap(c.why,x+30,y+442,w-60,'600 22px Inter',C.text,28)});
+ footer('Each game vs its own closing line · thru Nov 10 · not betting advice')}
+window.draw=(w)=>{if(w=='mon')monday();else if(w=='sat')saturday();else satV(w);return true};
+window.setData=d=>{D=d;return Promise.all(['900 40px Inter','800 40px Inter','700 40px Inter','600 40px Inter','500 40px Inter','700 40px JBM','700 40px Fraunces'].map(f=>document.fonts.load(f))).then(()=>true)};
+</script></body></html>

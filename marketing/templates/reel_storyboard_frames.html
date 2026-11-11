@@ -1,0 +1,77 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face{font-family:Inter;src:url('../fonts/InterVariable.ttf');font-weight:100 900}
+@font-face{font-family:JBM;src:url('../fonts/JetBrainsMono-Bold.ttf');font-weight:700}
+@font-face{font-family:Fraunces;src:url('../fonts/Fraunces72pt-Bold.ttf');font-weight:700}
+body{margin:0;background:#000}</style></head><body><canvas id="c" width="1080" height="1920"></canvas><script>
+const cv=document.getElementById('c'),ctx=cv.getContext('2d'),W=1080,H=1920;
+const C={text:'#EEEBFB',muted:'#9C95C9',orange:'#F7A325',yellow:'#FFD54A',green:'#34D399',red:'#F87171',led:'#FFB020'};
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function txt(s,x,y,font,col,align='left',a=1){ctx.save();ctx.globalAlpha=a;ctx.font=font;ctx.fillStyle=col;ctx.textAlign=align;ctx.fillText(s,x,y);ctx.restore()}
+function bg(top='#15112F',bot='#08061A'){const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,top);g.addColorStop(1,bot);ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}
+function glow(x,y,r,col){const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,col);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}
+function brand(){txt('PROPBETIQ',64,1840,'700 26px JBM',C.orange);txt('@propbetiq',W-64,1840,'700 26px JBM',C.muted,'right')}
+function ball(x,y,r,rot=0,a=1,ring=null){ctx.save();ctx.globalAlpha=a;if(ring){ctx.beginPath();ctx.arc(x,y,r+5,0,7);ctx.strokeStyle=ring;ctx.lineWidth=4;ctx.stroke()}
+ const g=ctx.createRadialGradient(x-r*.35,y-r*.35,r*.1,x,y,r);g.addColorStop(0,'#FFB065');g.addColorStop(.55,'#E8772E');g.addColorStop(1,'#A84A12');ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fillStyle=g;ctx.fill();
+ ctx.clip();ctx.translate(x,y);ctx.rotate(rot);ctx.strokeStyle='#2A1405';ctx.lineWidth=Math.max(1.5,r*.09);ctx.beginPath();ctx.moveTo(-r,0);ctx.lineTo(r,0);ctx.moveTo(0,-r);ctx.lineTo(0,r);ctx.stroke();
+ ctx.beginPath();ctx.arc(-r*1.25,0,r*.95,-1.1,1.1);ctx.stroke();ctx.beginPath();ctx.arc(r*1.25,0,r*.95,Math.PI-1.1,Math.PI+1.1);ctx.stroke();ctx.restore()}
+function hoopSide(x,y,s=1){ // backboard + rim + net, rim front at (x,y), facing left
+ ctx.save();ctx.fillStyle='rgba(255,255,255,.9)';ctx.fillRect(x+70*s,y-150*s,12*s,190*s);ctx.fillStyle='#9C95C9';ctx.fillRect(x+82*s,y-40*s,90*s,10*s);ctx.fillRect(x+160*s,y-40*s,12*s,380*s);
+ ctx.strokeStyle='#FF6B2C';ctx.lineWidth=8*s;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+70*s,y);ctx.stroke();
+ ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=2.5*s;for(let i=0;i<=5;i++){ctx.beginPath();ctx.moveTo(x+i*14*s,y);ctx.lineTo(x+12*s+i*9*s,y+70*s);ctx.stroke()}
+ ctx.beginPath();ctx.moveTo(x+4*s,y+25*s);ctx.lineTo(x+66*s,y+25*s);ctx.moveTo(x+8*s,y+50*s);ctx.lineTo(x+62*s,y+50*s);ctx.stroke();ctx.restore()}
+function hoopFront(cx,cy,s=1){ctx.save();rr(cx-200*s,cy-260*s,400*s,260*s,10*s);ctx.fillStyle='rgba(255,255,255,.06)';ctx.fill();ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=6*s;ctx.stroke();
+ ctx.strokeRect(cx-70*s,cy-150*s,140*s,110*s);ctx.strokeStyle='#FF6B2C';ctx.lineWidth=9*s;ctx.beginPath();ctx.ellipse(cx,cy,95*s,18*s,0,0,7);ctx.stroke();
+ ctx.strokeStyle='rgba(255,255,255,.75)';ctx.lineWidth=3*s;for(let i=-4;i<=4;i++){ctx.beginPath();ctx.moveTo(cx+i*23*s,cy+10*s);ctx.lineTo(cx+i*13*s,cy+150*s);ctx.stroke()}
+ for(let k=1;k<=3;k++){ctx.beginPath();ctx.ellipse(cx,cy+k*45*s,(95-k*18)*s,8*s,0,0,Math.PI);ctx.stroke()}ctx.restore()}
+
+
+const GI={g:[[35,28.5],[36,28.5],[14,28.5],[29,29.5],[24,30.5],[31,31.5],[30,30.5],[27,29.5],[20,28.5],[29,29.5]],opp:['MIN','DET','@CHA','DAL','@ATL','IND','@LAL','@LAC','@GS','@SAC']};
+function limbo(cx,y,w,label){ctx.fillStyle='#9C95C9';ctx.fillRect(cx-w/2-14,y-10,14,420);ctx.fillRect(cx+w/2,y-10,14,420);ctx.save();ctx.shadowColor=C.yellow;ctx.shadowBlur=24;rr(cx-w/2,y-10,w,22,11);ctx.fillStyle=C.yellow;ctx.fill();ctx.restore();txt(label,cx,y-34,'700 40px JBM',C.yellow,'center')}
+const A={
+1(){bg('#05040C','#000');glow(W/2,640,640,'rgba(255,213,74,.12)');limbo(W/2,560,620,'LINE 29.5');ball(W/2,880,46,0.3);
+ txt('GIANNIS IS THE',W/2,1130,'900 88px Inter','#fff','center');txt('MOST OVERPRICED',W/2,1240,'700 104px Fraunces',C.red,'center');txt('PROP IN THE NBA.',W/2,1350,'900 88px Inter','#fff','center');brand()},
+2(){bg('#05040C','#000');glow(W/2,900,600,'rgba(247,163,37,.15)');txt('Hear me out.',W/2,880,'700 130px Fraunces','#fff','center');txt('3 receipts.',W/2,980,'700 40px JBM',C.orange,'center');brand()},
+3(){bg();txt('RECEIPT 1 · THE STREAK',70,170,'700 38px JBM',C.orange);txt('Under the bar. 8 straight.',70,250,'800 62px Inter','#fff');
+ const x0=110,x1=990,y0=1300,sc=24,n=10,gw=(x1-x0)/n;
+ GI.g.forEach(([v,l],i)=>{const cx=x0+gw*(i+.5),over=v>l;ctx.fillStyle=over?C.green:C.red;rr(cx-gw*.32,y0-v*sc,gw*.64,v*sc,10);ctx.fill();ctx.fillStyle=C.yellow;ctx.fillRect(cx-gw*.48,y0-l*sc-4,gw*.96,8);txt(String(v),cx,y0-Math.max(v,l)*sc-22,'800 32px Inter',over?C.green:C.red,'center');txt(GI.opp[i],cx,y0+44,'700 22px JBM',C.muted,'center')});
+ ctx.strokeStyle=C.red;ctx.lineWidth=4;const bx=x0+gw*2,bx2=x1;ctx.beginPath();ctx.moveTo(bx+6,y0+80);ctx.lineTo(bx+6,y0+100);ctx.lineTo(bx2-6,y0+100);ctx.lineTo(bx2-6,y0+80);ctx.stroke();txt('8 STRAIGHT UNDERS',(bx+bx2)/2,y0+150,'900 48px Inter',C.red,'center');
+ txt('yellow = that night’s line',70,1600,'700 28px JBM',C.muted);brand()},
+4(){bg();txt('RECEIPT 2 · THE HALF-POINT CLUB',70,170,'700 38px JBM',C.orange);txt('Missed by 0.5. Four times.',70,250,'800 62px Inter','#fff');
+ [[29,29.5,'DAL'],[31,31.5,'IND'],[30,30.5,'@LAL'],[29,29.5,'@SAC']].forEach(([v,l,o],i)=>{const y=400+i*300;rr(90,y,900,270,30);ctx.fillStyle='rgba(255,255,255,.04)';ctx.fill();
+  txt(o,130,y+70,'700 32px JBM',C.muted);txt(String(v),130,y+220,'900 150px Inter',C.red);txt('pts',330,y+220,'700 40px Inter',C.text);
+  txt(`line ${l}`,950,y+140,'700 48px JBM',C.yellow,'right');txt('− 0.5',950,y+230,'900 80px Inter',C.red,'right')});brand()},
+5(){bg();txt('RECEIPT 3 · THE BOOKS',70,170,'700 38px JBM',C.orange);txt('The line won’t come down.',70,250,'800 62px Inter','#fff');
+ const x0=120,x1=980,Y=v=>1250-(v-12)*26,X=i=>x0+(x1-x0)*i/9;
+ ctx.save();ctx.strokeStyle=C.yellow;ctx.lineWidth=6;ctx.setLineDash([16,10]);ctx.beginPath();GI.g.forEach(([v,l],i)=>i?ctx.lineTo(X(i),Y(l)):ctx.moveTo(X(i),Y(l)));ctx.stroke();ctx.restore();
+ ctx.strokeStyle='#fff';ctx.lineWidth=5;ctx.beginPath();GI.g.forEach(([v,l],i)=>i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v)));ctx.stroke();GI.g.forEach(([v,l],i)=>ball(X(i),Y(v),16,i,1,v>l?C.green:C.red));
+ txt('LINE 28.5–31.5',x1,Y(31.5)-30,'700 34px JBM',C.yellow,'right');
+ rr(70,1380,940,200,30);ctx.fillStyle='rgba(248,113,113,.10)';ctx.fill();txt('27.5',110,1520,'900 110px Inter',C.red);txt('his average',400,1470,'700 40px Inter','#fff');txt('vs a 29.5 average line',400,1530,'700 32px JBM',C.muted);brand()},
+6(){bg();glow(W/2,800,600,'rgba(52,211,153,.10)');txt('BUT…',70,190,'700 44px JBM',C.green);txt('The counterpoint.',70,270,'800 62px Inter','#fff');
+ limbo(W/2,820,560,'LINE 28.5');ball(W/2-120,620,40,.2,1,C.green);ball(W/2+120,600,40,.9,1,C.green);
+ txt('FIRST TWO GAMES',W/2,1080,'700 36px JBM',C.muted,'center');txt('35  ·  36',W/2,1240,'900 150px Inter',C.green,'center');txt('The ceiling is still there.',W/2,1400,'700 60px Fraunces',C.orange,'center');brand()},
+7(){bg('#05040C','#000');limbo(W/2,520,520,'');txt('Overpriced',W/2,860,'700 110px Fraunces',C.red,'center');txt('or due?',W/2,980,'700 110px Fraunces',C.green,'center');
+ rr(150,1090,780,140,70);ctx.fillStyle='rgba(247,163,37,.14)';ctx.fill();ctx.strokeStyle=C.orange;ctx.lineWidth=4;ctx.stroke();txt('Tell me in the comments.',W/2,1178,'800 50px Inter',C.orange,'center');txt('Follow for the data, not the hype.',W/2,1320,'700 34px JBM',C.text,'center');brand()}
+};
+const LU=[28,23,52,41,37,45,42,40,53,32];
+const B={
+1(){bg('#05040C','#000');glow(W/2,700,700,'rgba(247,163,37,.16)');txt('LUKA DONČiĆ IS AVERAGING',W/2,560,'700 46px JBM',C.text,'center');
+ txt('39.3',W/2,900,'900 340px Inter','#fff','center');txt('POINTS PER GAME',W/2,1010,'700 50px JBM',C.orange,'center');txt('Here’s why that number is insane.',W/2,1250,'700 56px Fraunces',C.text,'center');brand()},
+2(){bg('#05040C','#000');txt('Only one player has ever',W/2,760,'700 64px Inter','#fff','center');txt('finished a season above 38.',W/2,850,'700 64px Inter','#fff','center');txt('Wilt Chamberlain.',W/2,1040,'700 110px Fraunces',C.orange,'center');txt('Three times.',W/2,1150,'700 60px JBM',C.text,'center');txt('*qualified seasons. Elgin Baylor averaged 38.3 in 48 games in 1961-62.',W/2,1600,'600 26px Inter',C.muted,'center');brand()},
+3(){bg();txt('THE 38-POINT CLUB',70,170,'700 38px JBM',C.orange);txt('Highest scoring seasons ever',70,250,'800 60px Inter','#fff');
+ const L=[['Wilt','1961-62',50.4,0],['Wilt','1962-63',44.8,0],['LUKA','2026-27*',39.3,1],['Wilt','1960-61',38.4,0],['Wilt','1959-60',37.6,0],['Jordan','1986-87',37.1,0],['Harden','2018-19',36.1,0]];
+ L.forEach(([n,s,v,me],i)=>{const y=380+i*170,w=(v-30)/21*620;txt(n,90,y+60,'900 46px Inter',me?C.orange:'#fff');txt(s,90,y+100,'700 26px JBM',C.muted);rr(330,y+20,w,90,14);ctx.fillStyle=me?C.orange:'rgba(255,255,255,.18)';ctx.fill();if(me){ctx.save();ctx.setLineDash([12,10]);ctx.strokeStyle=C.orange;ctx.lineWidth=4;rr(330,y+20,(50.4-30)/21*620,90,14);ctx.stroke();ctx.restore()}txt(v.toFixed(1),330+w+20,y+82,'900 44px Inter',me?C.orange:'#fff')});
+ txt('*10 games in',90,1640,'700 28px JBM',C.muted);brand()},
+4(){bg();txt('THE MATH',70,170,'700 38px JBM',C.orange);txt('To finish at 38.0…',70,250,'800 62px Inter','#fff');
+ txt('37.8',W/2,780,'900 300px Inter',C.orange,'center');txt('points a night',W/2,880,'700 56px Inter','#fff','center');txt('for his next 72 games',W/2,960,'700 56px Inter','#fff','center');
+ rr(120,1100,840,60,30);ctx.fillStyle='rgba(255,255,255,.08)';ctx.fill();rr(120,1100,840*10/82,60,30);ctx.fillStyle=C.orange;ctx.fill();txt('10 of 82 games played',W/2,1220,'700 32px JBM',C.muted,'center');
+ txt('That would be the best season ever',W/2,1380,'600 44px Inter',C.text,'center');txt('by anyone not named Wilt.',W/2,1440,'600 44px Inter',C.text,'center');brand()},
+5(){bg();txt('CAN HE?',70,170,'700 38px JBM',C.orange);txt('38+ in 6 of his 10 games.',70,250,'800 62px Inter','#fff');
+ const x0=120,x1=980,y0=1250,sc=14;LU.forEach((v,i)=>{const cx=x0+(x1-x0)*(i+.5)/10,hit=v>=38;ctx.fillStyle=hit?C.orange:'rgba(255,255,255,.2)';rr(cx-30,y0-v*sc,60,v*sc,10);ctx.fill();txt(String(v),cx,y0-v*sc-20,'800 32px Inter',hit?C.orange:C.text,'center')});
+ ctx.save();ctx.setLineDash([14,10]);ctx.strokeStyle=C.yellow;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(100,y0-38*sc);ctx.lineTo(1000,y0-38*sc);ctx.stroke();ctx.restore();txt('38',1010,y0-38*sc+12,'700 32px JBM',C.yellow);brand()},
+6(){bg('#05040C','#000');txt('Does he get there?',W/2,860,'700 110px Fraunces','#fff','center');
+ const btn=(y,s,col)=>{rr(150,y,780,150,75);ctx.fillStyle=col+'22';ctx.fill();ctx.strokeStyle=col;ctx.lineWidth=5;ctx.stroke();txt(s,W/2,y+100,'900 60px Inter',col,'center')};btn(980,'YES, 38+',C.green);btn(1170,'NO, HE COOLS OFF',C.red);
+ txt('Comment your number.',W/2,1440,'700 48px Inter',C.text,'center');brand()}
+};
+window.draw=(c,i)=>{ctx.setLineDash([]);({A,B})[c][i]();return true};
+window.ready=()=>Promise.all(['900 50px Inter','800 50px Inter','700 50px Inter','600 50px Inter','700 50px JBM','700 50px Fraunces'].map(f=>document.fonts.load(f))).then(()=>true);
+</script></body></html>

@@ -1,87 +1,86 @@
-# PropBetIQ daily Instagram content — playbook
+# PropBetIQ weekly Instagram content: playbook (v2)
 
-Every morning, make **one** ready-to-post Instagram piece for @propbetiq plus its caption, and deliver both to Chris. Chris reviews and posts it himself. Never post anywhere, never commit to the repo, never message anyone else.
+Four posts a week for @propbetiq. Goal: engagement and follower growth by showing the depth of our data with a data-science angle. Each post must be unique, easy for the average fan to follow, and about a well-known player.
 
-## Brand rules (non-negotiable)
+Chris reviews and publishes every post himself. Never post or publish anything, never commit or push to the repo, never message anyone.
 
-- **Data, not picks.** PropBetIQ teaches bettors to use hit rates instead of "locks", podcasters or gut feel. Never say "lock", "hammer", "free pick" or tell people what to bet.
-- **Every number must come from the data.** Hit rates come from the PropBetIQ site data in the repo; shot locations from ESPN play-by-play via sportsdataverse. If a number can't be verified, cut it.
-- **Prop lines must be real.** Find the actual line from a published source (e.g. SportsBettingDime, Covers, Action Network, a sportsbook's news page). Never use BettingPros hit rates. If you can't find a line for a player, pick a different player. Keep the source URL for the delivery note (not the caption).
-- **Recaps use pre-game data only.** When the piece is about a game that already happened, every hit rate must come from games *before* that game (the tools enforce this — keep it that way).
-- **No player photos, team logos or wordmarks.** The templates draw a generic silhouette badge in team colors with the jersey number. Don't add images.
-- **Look and tone:** dark navy/purple, orange accent, clean and data-centric. Captions are short, confident and plain. No emojis. Always end with the free-trial CTA, "Not betting advice. Please bet responsibly." and 8–10 hashtags.
+## The weekly schedule (Pacific time)
 
-## Weekly calendar (Pacific time)
+| Day | Format | Output | Example |
+|---|---|---|---|
+| Mon | **Player Scouting Report**: one player worth a look, hit rates across several props, Kirk Goldsberry-style visuals | Infographic PNG 1080x1350 | `examples/strawman_mon_scouting_report.png` (Wembanyama) |
+| Wed | **Bold claim, "hear me out"**: provocative take, three data receipts, one honest counterpoint, vote CTA | Reel MP4 1080x1920, voiceover, ~15-20s | `examples/kd_reel_example.mp4`, `examples/strawman_wed_bold_claim_storyboard.png` (Giannis) |
+| Fri | **One number**: a single striking data point. Does not need a betting angle | Reel MP4 1080x1920, voiceover, ~15s | `examples/strawman_fri_one_number_storyboard.png` (Luka pace) |
+| Sat | **Weekend Watchlist**: 4 props on a streak heading into the weekend | Infographic PNG 1080x1350 | `examples/strawman_sat_*.png` |
 
-| Day | Piece | Sport |
-|---|---|---|
-| Mon | Shot-chart reel — last night's standout scorer | NBA |
-| Tue | Data card — NFL recap of a Sunday/MNF prop the data called (pre-game rates) | NFL |
-| Wed | Shot-chart reel | NBA |
-| Thu | Data card — tonight's NBA prop to watch (preview, with the halftime "live-bet split") | NBA |
-| Fri | Shot-chart reel | NBA |
-| Sat | Data card — NBA recap or preview, whichever has the stronger story | NBA |
-| Sun | Data card — NFL slate preview: one player prop with a strong split | NFL |
+All four formats are NBA during the NBA season. Players in the Saturday watchlist must have a game that weekend (Sat or Sun).
 
-Fallbacks: no NBA games last night → make a preview card for tonight. No NBA games at all (All-Star break, offseason) → NFL card. NFL offseason → NBA card instead of the NFL slot. If no story is strong enough, say so and deliver the best available card rather than forcing a weak one.
+## Brand and content rules (non-negotiable)
 
-## What makes a good story
+- **Data, not picks.** Never say "lock", "hammer", "free pick" or tell people what to bet. Phrase as "worth a look", "the data says", "keep an eye on". End graphics with "not betting advice".
+- **Every number must be verified.** Game results come from the site data (`NBA/propbetiq_nba-*.json`). Shot locations come from ESPN play-by-play via `tools/nba_data.py`. If a number can't be verified, cut it.
+- **Lines must be real and readable.**
+  - Only show lines a sportsbook actually posted. Never show an averaged line (e.g. "23.4") or a range as a bet (e.g. "OVER 19.5-23.5").
+  - Hit rates grade each game against **that game's own closing line**. Say so on the graphic ("each game vs that night's line").
+  - When one number is needed for the prop label, use the **latest line** and label it "latest line 19.5". A range may appear only as context in a sentence ("his line has stayed between 19.5 and 23.5").
+- **Never mention Covers** (or any data vendor) anywhere on screen, in captions or in voiceovers. Behind the scenes, closing lines come from Covers player pages (see Data below).
+- **No player photos, avatars, silhouettes, jersey-number badges, team logos or wordmarks.** Plain player name and team text only. (Some older templates draw a `badge()`: never call it.)
+- **No emojis.** Dark navy/purple background, orange #F7A325 accent, fonts Inter / JetBrains Mono / Fraunces (in `fonts/`). Green = over, red = under, yellow = the line.
+- **Well-known players only** (regular starters / names casual fans know). **No player repeats within 28 days**: check `posted_log.csv` before choosing. Also avoid using the same player in two formats in the same week.
+- Small samples are fine (we use the last 10 games), but say "last 10" and never imply certainty.
 
-Look for a player whose **overall** hit rate is ordinary (roughly 45–65%) but whose **split** is decisive — halftime pace (`h1_*`), first quarter (`q1_*`), home/away, vs this opponent, last 10 — and, for recaps, where that split called last night's result. Prefer well-known players. The SGA example in `examples/` is the model: 63% overall → 79% when 15+ at the half → he had 16 at the half and scored 32.
+## Data
 
-## Setup (each run starts fresh)
+- Site data: `NBA/propbetiq_nba-*.json` (meta.generated_at should be < ~30h old; note it in the delivery if stale). `players[nba_id].games[]` has date, opp, loc, season (2027 = 2026-27), pts, reb, ast, fg3m, stl, blk, h1_*, q1_*.
+- Shots: `tools/nba_data.py` (`NBA(repo).find(name)` then `.pbp(2027, espn_id)`) gives every shot with `coordinate_x_raw`, `coordinate_y_raw` (rim at x=25, y=0; feet), `scoring_play`, `score_value`. League zone averages: compute from the same pbp file (rim <4ft, paint <14ft, mid, 3 = corner |x-25|>=21.9 & y<=8.8 or distance >=23.7).
+- Closing lines: fetch the player's Covers page with WebFetch, `https://www.covers.com/sport/basketball/nba/players/<id>/<slug>` (find the URL by web search "covers <player name> props"). Each prop section has a 10-game log: date, opponent, result (o/u), closing line (odds). Ask WebFetch for the full table for each prop you need (points, rebounds, assists, 3-pointers made, steals and blocks, points and rebounds...).
+  - **Cross-check every result against the site data** (points/rebounds/assists/threes for that date). If a row doesn't match, drop that player.
+  - Keep only rows from the current season.
+- Facts outside our data (e.g. all-time records for Friday): use a reputable stats source, double-check, and footnote edge cases (e.g. qualified seasons).
 
+## Format details
+
+### Monday: Player Scouting Report (infographic)
+- Pick a well-known player with a clear, explainable split across props (e.g. points over 8/10 but rebounds under 6/10). Headline is a short contrast ("Bet the bucket. Not the boards.").
+- Layout (see `templates/weekly_infographics.html`, `monday()`): left panel = signature visual; right panel = hit rate vs the line for ~5 props (one dot per game, latest line under each label); bottom = three big-number insight cards.
+- **Rotate the left-panel visual** to fit the player: hex shot chart (scorers; size = volume, color = FG% vs league in that zone), assist/creation breakdown, home vs away split, last-10 trend line. Don't use the same left visual two Mondays in a row.
+
+### Wednesday: Bold claim, "hear me out" (reel)
+- Arc: HOOK claim (0-3s) -> "Hear me out." -> 3 receipts (each one stat, one visual metaphor) -> honest COUNTERPOINT -> CTA vote ("Overpriced or due?", "Washed or not washed?").
+- Each reel needs a **visual metaphor** (KD: the rim is his line and shots fall short; Giannis: a limbo bar he keeps ducking under). Paint a picture; don't just put stats on screen.
+- Animate in a copy of `templates/reel_animated_example_kd.html` (functions `S[1..7](t)`, `window.draw(i,t)`); `templates/reel_storyboard_frames.html` has the Giannis and Luka frames as static starting points.
+
+### Friday: One number (reel)
+- One striking, easy number with context (historic pace, rarity, "needs X per game the rest of the way"). Arc: number -> why it's insane -> context chart -> the math -> "can he?" -> CTA question.
+
+### Saturday: Weekend Watchlist (infographic)
+- 4 props on a streak (7/10 or better, over or under) for well-known players who play this weekend. Mix overs and unders; mix stat types; different teams where possible.
+- Card: name, team, "PROP SIDE · latest line X", X/10 hit, the chart, one-sentence "why" (plain English).
+- **Rotate the chart by ISO week number** (`date +%V` mod 4): 0 = bars (`sat`), 1 = margin lollipops (`lolli`), 2 = scoreboard tiles (`tiles`), 3 = rolling-ball line (`line`).
+
+## Voiceover (Wed and Fri reels)
+- ElevenLabs connector: `creative_generate_speech`, model `eleven_v4`, voice **Olumide Gbenro** `0m1WGWVzxS7KbWobXtnw` (the account's voice; always use it), **generations_count = 1** (one take).
+- Write the script to match the storyboard line by line; use `[short pause]` / `[beat]` tags between beats. Poll `creative_get_flow_run_status`, download the `content_url` mp3 with curl.
+- Speed up with `atempo=1.08` if long. Find line starts with ffmpeg `silencedetect` and set each scene's duration so it changes when the narrator starts that line (`tools/render_reel.py`).
+- No music: Chris adds a trending sound in Instagram at publish time.
+
+## Captions
+- First line = a hook with a number not on screen (only ~125 characters show before "more").
+- 2-3 short stat lines that add something the visual doesn't say, a plain-English takeaway, a comment question, "Follow @propbetiq for ..." line, 4-6 hashtags. No emojis. Never mention Covers.
+
+## Build and check (every run)
 ```bash
-git clone --depth 1 https://github.com/backironanalytics/DDS.git
-cd DDS/marketing/tools
-python3 -c "import playwright" && which ffmpeg     # both should already exist
+git clone --depth 1 https://github.com/backironanalytics/DDS.git && cd DDS/marketing
+python3 -c "import playwright" && which ffmpeg     # preinstalled; set PW_CHROMIUM if needed, never run playwright install
+python3 tools/render_infographic.py <mon|sat|lolli|tiles|line> data.json out.png
+python3 tools/render_reel.py stills my_reel.html "3.8,1.2,5.3,4.4,4.6,3.8,5.6"
+python3 tools/render_reel.py video  my_reel.html "<durations>" vo.mp3 out.mp4 1.08
 ```
+Look at the rendered PNG / reel stills before delivering: no overlapping text, nothing cut off, every number matches your verified data.
 
-If Playwright can't find Chromium, set `PW_CHROMIUM` to the installed Chromium binary (e.g. `/opt/pw-browsers/chromium`) — don't run `playwright install`.
-
-Check data freshness: `NBA/propbetiq_nba-*.json` → `meta.generated_at` should be from the last ~30 hours. If it's older, note it in the delivery message (the nightly GitHub Action may have failed).
-
-## NBA workflow
-
-```bash
-R=../..   # repo root
-python3 nba_data.py --repo $R last-night                         # last night's box scores + recent averages
-python3 nba_data.py --repo $R player "Player Name" --line 26.5   # splits + halftime threshold table
-```
-
-Pick the player and line (web search for the real line), then choose `--hi`/`--lo` halftime thresholds from the table: each side needs 8+ games and a clear gap (e.g. 79% vs 17%).
-
-**Reel (Mon/Wed/Fri):**
-```bash
-python3 nba_data.py --repo $R reel-spec "Player Name" --line 29.5 --date YYYY-MM-DD \
-   --sample <season year> --hi 15 --lo 12 --label "LAST NIGHT vs BOS" --tag "LAST NIGHT" --out /tmp/spec.json
-python3 render.py still /tmp/spec.json /tmp/check13.png --t 13      # look at it
-python3 render.py still /tmp/spec.json /tmp/check30.png --t 30.5
-python3 render.py reel  /tmp/spec.json /tmp/out/<player>_<date>_reel.mp4
-```
-- `--sample`: the season the hit rates come from. Use last season (e.g. 2026 for 2025-26) until this season has 10+ games before the featured date; the tool refuses a sample under 10 games.
-- `--stat fg3m` makes a made-threes version (line = threes line).
-- Both `VERIFY` lines must be clean (0 mismatches; featured total matches the site box score once it's there). Look at both check stills before rendering.
-
-**Data card (Thu/Sat):**
-```bash
-python3 nba_data.py --repo $R card-spec "Player Name" --line 25.5 --stat pts --opp PHI --loc home --hi 12 \
-   --kicker "NBA · TONIGHT" --matchup "vs PHI · 7:30 ET" --headline "<short data-backed headline>" \
-   [--before YYYY-MM-DD]  --out /tmp/card.json
-```
-Then edit `/tmp/card.json`: write the `headline` (≤ 2 lines), an `insight` (1–2 short lines explaining the split), set `highlight` to the row that carries the story, and for recaps add `result` (e.g. `{"value":32,"text":"32 PTS · OVER"}`) and pass `--before <game date>`. Render:
-```bash
-python3 render.py card /tmp/card.json /tmp/out/<player>_<date>_card.png
-```
-
-## NFL workflow (Tue/Sun)
-
-The NFL site data is `NFL/propbetiq_nfl-*.json`: `players[id] = {display_name, current_team, position, passing|rushing|receiving: [game rows]}`; each row has `wk, season, yards, loc ('home'/'away'), wx (weather bucket), opp ('top_/mid_/bottom_pass_def' or '_run_def'), q1_yds, h1_yds` plus `cmp/att/td/int` (passing), `carries` (rushing), `rec/tgt/q1_rec/h1_rec` (receiving). A game "hits" when the stat is **≥** the line rounded up (yards > line).
-
-Build the card spec by hand in Python from those rows using the same JSON shape as an NBA card (`rows` = label/hits/n; first row = baseline, the highlighted row = the split that matters: location, opponent tier, weather, Q1/H1 pace, last 4). Use `NBA.find`-style team colors: pick the team's real primary/secondary colors (no logos). For Tuesday recaps, only use games before that week.
-
-## Delivery
-
-1. Send the rendered file with SendUserFile (reel `.mp4` 1080×1080, or card `.png` 1080×1350).
-2. Present the caption with the writing-draft card (short: hook line, 2–3 stat lines, the payoff, CTA, responsible-gambling line, hashtags).
-3. In one short message: the story in a sentence, the prop line and where it came from (link), and any caveat (stale data, small sample).
+## Delivery (to Chris, in chat)
+1. SendUserFile: the finished PNG or MP4, named `<yyyy-mm-dd>_<format>_<player>.<ext>`.
+2. The caption as a writing-draft card.
+3. One short message: the story in one sentence, the data caveats (sample size, stale data), and the next steps:
+   "Drag the file into `marketing/media/` on GitHub and add this row to `marketing/posted_log.csv`: `<row>`. Then reply **uploaded** with the time you want it to go out (default 5:00pm PT)."
+4. When Chris replies "uploaded": create the Metricool post with `createScheduledPost` (brand/blogId `8041027`, timezone America/Los_Angeles), media = `https://raw.githubusercontent.com/backironanalytics/DDS/main/marketing/media/<file>`, Instagram type REEL (video) or POST (image), the caption, `autoPublish: false` (Metricool notifies Chris's phone at post time and he publishes from Instagram, adding music), `draft: false`. Send him the `plannerUrl`. Never set autoPublish true unless Chris asks for that post.
